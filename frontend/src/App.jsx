@@ -8,7 +8,7 @@ const App = () => {
   const [pedidosActivos, setPedidosActivos] = useState([]);
   const [pedidoSeleccionado, setPedidoSeleccionado] = useState(null);
   const [categoriaActual, setCategoriaActual] = useState(null);
-  const [vista, setVista] = useState("LISTADO"); // LISTADO o TOMA_PEDIDO
+  const [vista, setVista] = useState("LISTADO"); 
   const [verDetalleTicket, setVerDetalleTicket] = useState(false);
 
   useEffect(() => {
@@ -50,11 +50,26 @@ const App = () => {
       await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/agregar`, {
         productos: [{ id: prod.id, cantidad: 1 }]
       });
-      // Refrescar solo el pedido actual
-      const res = await axios.get(`${API_URL}/pedidos/activos`);
-      const actualizado = res.data.find(p => p.id === pedidoSeleccionado.id);
-      setPedidoSeleccionado(actualizado);
+      refrescarPedidoActual();
     } catch (err) { alert("Error al agregar producto"); }
+  };
+
+  // NUEVA FUNCIÓN: Eliminar una unidad o el producto completo
+  const eliminarProducto = async (prodId) => {
+    try {
+      // Nota: Asegúrate de tener la ruta DELETE o PUT correspondiente en tu backend
+      // Aquí simulamos la resta de 1 en el backend
+      await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/eliminar`, {
+        productoId: prodId
+      });
+      refrescarPedidoActual();
+    } catch (err) { alert("Error al eliminar producto"); }
+  };
+
+  const refrescarPedidoActual = async () => {
+    const res = await axios.get(`${API_URL}/pedidos/activos`);
+    const actualizado = res.data.find(p => p.id === pedidoSeleccionado.id);
+    setPedidoSeleccionado(actualizado);
   };
 
   const cerrarCuenta = async () => {
@@ -67,11 +82,10 @@ const App = () => {
     } catch (err) { alert("Error al cerrar"); }
   };
 
-  // --- VISTA 1: LISTADO DE MESAS ---
   if (vista === "LISTADO") {
     return (
       <div style={styles.container}>
-        <h1 style={styles.header}>KALI POS 🍷</h1>
+        <h1 style={styles.header}>KALI GASTROBAR 🍷</h1>
         <button onClick={nuevoPedido} style={styles.btnNuevo}>+ ABRIR NUEVA MESA</button>
         <h2 style={{color: '#f1c40f', borderBottom: '1px solid #333', paddingBottom: '10px'}}>Mesas Activas</h2>
         <div style={styles.grid}>
@@ -87,7 +101,6 @@ const App = () => {
     );
   }
 
-  // --- VISTA 2: TOMA DE PEDIDO (DENTRO DE UNA MESA) ---
   return (
     <div style={styles.container}>
       <style>{`
@@ -100,8 +113,8 @@ const App = () => {
       `}</style>
 
       <div style={{display: 'flex', alignItems: 'center', marginBottom: '20px'}}>
-        <button onClick={() => {setVista("LISTADO"); fetchPedidosActivos();}} style={styles.backBtn}>← Menú Principal</button>
-        <h2 style={{margin: '0 0 0 20px', color: '#f1c40f'}}>{pedidoSeleccionado.mesero}</h2>
+        <button onClick={() => {setVista("LISTADO"); fetchPedidosActivos();}} style={styles.backBtn}>← Volver</button>
+        <h2 style={{margin: '0 0 0 20px', color: '#f1c40f'}}>Mesa: {pedidoSeleccionado.mesero}</h2>
       </div>
 
       {!categoriaActual ? (
@@ -115,7 +128,7 @@ const App = () => {
         </div>
       ) : (
         <div>
-          <button onClick={() => setCategoriaActual(null)} style={styles.secondaryBtn}>← Volver a Categorías</button>
+          <button onClick={() => setCategoriaActual(null)} style={styles.secondaryBtn}>← Categorías</button>
           <div style={styles.grid}>
             {productos.filter(p => p.categoria === categoriaActual).map(p => (
               <button key={p.id} onClick={() => agregarProducto(p)} style={styles.prodBtn}>
@@ -127,23 +140,25 @@ const App = () => {
         </div>
       )}
 
-      {/* BOTÓN FLOTANTE DE CARRITO */}
       <button style={styles.cartFloat} onClick={() => setVerDetalleTicket(true)}>
         🛒 Ver Cuenta (${pedidoSeleccionado.total.toFixed(2)})
       </button>
 
-      {/* TICKET DETALLE (MODAL LATERAL) */}
       <div className="ticket-overlay">
         <div style={styles.ticketHeader}>
-          <h3 style={{margin: 0}}>Mesa: {pedidoSeleccionado.mesero}</h3>
+          <h3 style={{margin: 0}}>Kali Gastrobar</h3>
           <button onClick={() => setVerDetalleTicket(false)} style={styles.closeBtn}>×</button>
         </div>
         
         <div style={{flex: 1, padding: '20px', overflowY: 'auto'}}>
-          {pedidoSeleccionado.detallesPedido?.length === 0 ? <p>La mesa está vacía.</p> : 
+          <h4 style={{marginTop: 0}}>Detalle de {pedidoSeleccionado.mesero}</h4>
+          {pedidoSeleccionado.detallesPedido?.length === 0 ? <p>No hay consumos.</p> : 
             pedidoSeleccionado.detallesPedido.map((det, index) => (
               <div key={index} style={styles.ticketItem}>
-                <span>{det.cantidad}x {det.producto.nombre}</span>
+                <div style={{display: 'flex', alignItems: 'center'}}>
+                  <button onClick={() => eliminarProducto(det.producto.id)} style={styles.btnMinus}>-</button>
+                  <span>{det.cantidad}x {det.producto.nombre}</span>
+                </div>
                 <span>${(det.producto.precio * det.cantidad).toFixed(2)}</span>
               </div>
             ))
@@ -155,7 +170,7 @@ const App = () => {
             <span>TOTAL:</span>
             <span>${pedidoSeleccionado.total.toFixed(2)}</span>
           </div>
-          <button onClick={cerrarCuenta} style={styles.payBtn}>CERRAR Y COBRAR CUENTA</button>
+          <button onClick={cerrarCuenta} style={styles.payBtn}>CERRAR Y COBRAR</button>
         </div>
       </div>
     </div>
@@ -164,10 +179,10 @@ const App = () => {
 
 const styles = {
   container: { background: '#121212', color: 'white', minHeight: '100vh', padding: '20px', fontFamily: 'sans-serif', paddingBottom: '100px' },
-  header: { textAlign: 'center', color: '#f1c40f', fontSize: '2.2rem' },
+  header: { textAlign: 'center', color: '#f1c40f', fontSize: '2.2rem', letterSpacing: '1px' },
   btnNuevo: { width: '100%', padding: '20px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '30px', cursor: 'pointer' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' },
-  pedidoCard: { background: '#1e1e1e', padding: '20px', borderRadius: '15px', border: '1px solid #333', textAlign: 'center', cursor: 'pointer', position: 'relative' },
+  pedidoCard: { background: '#1e1e1e', padding: '20px', borderRadius: '15px', border: '1px solid #333', textAlign: 'center', cursor: 'pointer' },
   badgeTotal: { background: '#2ecc71', color: '#fff', borderRadius: '8px', padding: '5px', fontWeight: 'bold', marginBottom: '5px' },
   catBtn: { height: '120px', color: 'white', border: 'none', borderRadius: '15px', fontSize: '1.3rem', fontWeight: 'bold', cursor: 'pointer' },
   prodBtn: { background: '#2d2d2d', color: 'white', padding: '20px', border: '1px solid #444', borderRadius: '12px', cursor: 'pointer', textAlign: 'center' },
@@ -176,7 +191,8 @@ const styles = {
   cartFloat: { position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: '400px', padding: '18px', background: '#f1c40f', color: '#000', border: 'none', borderRadius: '50px', fontSize: '1.2rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 5px 20px rgba(0,0,0,0.5)', zIndex: 100 },
   ticketHeader: { padding: '25px', background: '#f8f9fa', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #ddd' },
   closeBtn: { fontSize: '2rem', border: 'none', background: 'none', cursor: 'pointer' },
-  ticketItem: { display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #eee' },
+  ticketItem: { display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #eee', alignItems: 'center' },
+  btnMinus: { background: '#ff7675', color: 'white', border: 'none', borderRadius: '5px', width: '28px', height: '28px', marginRight: '10px', cursor: 'pointer', fontWeight: 'bold' },
   ticketFooter: { padding: '25px', background: '#fff', borderTop: '2px solid #333' },
   payBtn: { width: '100%', padding: '20px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.3rem', fontWeight: 'bold', cursor: 'pointer' }
 };
