@@ -28,6 +28,11 @@ const App = () => {
     try {
       const res = await axios.get(`${API_URL}/pedidos/activos`);
       setPedidosActivos(res.data);
+      // Si hay un pedido seleccionado, lo actualizamos también para que no "desaparezcan" items
+      if (pedidoSeleccionado) {
+        const actualizado = res.data.find(p => p.id === pedidoSeleccionado.id);
+        if (actualizado) setPedidoSeleccionado(actualizado);
+      }
     } catch (err) { console.error("Error al cargar activos", err); }
   };
 
@@ -38,6 +43,7 @@ const App = () => {
       const res = await axios.post(`${API_URL}/pedidos/nuevo`, { mesero: nombre });
       setPedidoSeleccionado(res.data);
       setVista("TOMA_PEDIDO");
+      fetchPedidosActivos(); // Refrescar lista global
     } catch (err) { alert("Error al crear mesa"); }
   };
 
@@ -51,7 +57,8 @@ const App = () => {
       await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/agregar`, {
         productos: [{ id: prod.id, cantidad: 1 }]
       });
-      refrescarPedidoActual();
+      // CRUCIAL: Refrescamos todo el estado global inmediatamente
+      fetchPedidosActivos();
     } catch (err) { alert("Error al agregar"); }
   };
 
@@ -60,16 +67,9 @@ const App = () => {
       await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/eliminar`, {
         productoId: prodId
       });
-      refrescarPedidoActual();
+      // CRUCIAL: Refrescamos todo el estado global inmediatamente
+      fetchPedidosActivos();
     } catch (err) { alert("Error al quitar producto"); }
-  };
-
-  const refrescarPedidoActual = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/pedidos/activos`);
-      const actualizado = res.data.find(p => p.id === pedidoSeleccionado.id);
-      if (actualizado) setPedidoSeleccionado(actualizado);
-    } catch (err) { console.error(err); }
   };
 
   const cerrarCuenta = async () => {
@@ -78,6 +78,7 @@ const App = () => {
       await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/cerrar`);
       setVerDetalleTicket(false);
       setVista("LISTADO");
+      setPedidoSeleccionado(null);
       fetchPedidosActivos();
     } catch (err) { alert("Error al cerrar cuenta"); }
   };
@@ -88,7 +89,7 @@ const App = () => {
       const res = await axios.get(`${API_URL}/reportes/diario?fecha=${hoy}`);
       setDatosReporte(res.data);
       setVista("REPORTE");
-    } catch (err) { alert("Error al cargar reporte. Verifica que el backend tenga la ruta /reportes/diario"); }
+    } catch (err) { alert("Error al cargar reporte."); }
   };
 
   // --- DISEÑO ---
@@ -120,8 +121,7 @@ const App = () => {
     historyCardHeader: { display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '10px', fontSize: '1.2rem' },
     historyTotal: { color: '#2ecc71', fontWeight: 'bold' },
     historyDetails: { fontSize: '0.9rem', color: '#ccc' },
-    historyItem: { display: 'flex', justifyContent: 'space-between', marginBottom: '4px' },
-    historyTime: { marginTop: '10px', fontSize: '0.75rem', color: '#666', textAlign: 'right' }
+    historyItem: { display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }
   };
 
   if (vista === "REPORTE") {
@@ -189,8 +189,8 @@ const App = () => {
           flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,0.5); 
         }
       `}</style>
-      <button onClick={() => setVista("LISTADO")} style={styles.backBtn}>← Volver</button>
-      <h2 style={{color: '#f1c40f', textAlign:'center'}}>{pedidoSeleccionado?.mesero}</h2>
+      <button onClick={() => {setVista("LISTADO"); setCategoriaActual(null);}} style={styles.backBtn}>← Volver</button>
+      <h2 style={{color: '#f1c40f', textAlign:'center'}}>Mesa: {pedidoSeleccionado?.mesero}</h2>
       
       {!categoriaActual ? (
         <div style={styles.grid}>
@@ -220,7 +220,7 @@ const App = () => {
 
       <div className="ticket-overlay">
         <div style={styles.ticketHeader}>
-          <h3 style={{margin: 0}}>Detalle Mesa</h3>
+          <h3 style={{margin: 0}}>Kali Gastrobar</h3>
           <button onClick={() => setVerDetalleTicket(false)} style={styles.closeBtn}>×</button>
         </div>
         <div style={{flex: 1, padding: '20px', overflowY: 'auto'}}>
