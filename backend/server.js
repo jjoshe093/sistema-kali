@@ -137,13 +137,65 @@ app.put('/api/pedidos/:id/agregar', async (req, res) => {
 });
 
 // 4. Cerrar pedido (Pagar)
+// CERRAR PEDIDO Y DESCONTAR STOCK
 app.put('/api/pedidos/:id/cerrar', async (req, res) => {
   const { id } = req.params;
-  await prisma.pedido.update({
-    where: { id: parseInt(id) },
-    data: { estado: "CERRADO" }
+
+  try {
+    const resultado = await prisma.$transaction(async (tx) => {
+      // 1. Obtener el detalle del pedido antes de cerrar
+      const detalles = await tx.detallePedido.findMany({
+        where: { pedidoId: parseInt(id) },
+        include: { producto: true }
+      });
+
+      // 2. Descontar stock solo de productos que NO son comida (bebidas/cocteles)
+      for (const item of detalles) {
+        if (!item.producto.esComida) {
+          await tx.producto.update({
+            where: { id: item.productoId },
+            data: { stock: { decrement: item.cantidad } }
+          });
+        }
+      }
+
+      // 3. Cambiar estado a CERRADO
+      return await tx.pedido.update({
+        where: { id: parseInt(id) },
+        data: { estado: "CERRADO" }
+      });
+    });
+
+    res.json(resultado);
+  } catch (error) {
+    res.status(500).json({ error: "Error al cerrar cuenta y descontar stock" });
+  }
+});
+
+// REPORTE DE VENTAS POR DÍA
+app.get('/api/reportes/diario', async (req, res) => {
+  const { fecha } = req.query; // Espera formato YYYY-MM-DD
+  const inicioDia = new Date(fecha);
+  inicioDia.setHours(0, 0, 0, 0);
+  
+  const finDia = new Date(fecha);
+  finDia.setHours(23, 59, 59, 999);
+
+  const pedidos = await prisma.pedido.findMany({
+    where: {
+      estado: "CERRADO",
+      fecha: { gte: inicioDia, lte: finDia }
+    },
+    include: { detallesPedido: { include: { producto: true } } }
   });
-  res.json({ msg: "Pedido cerrado" });
+
+  const totalVendido = pedidos.reduce((acc, p) => acc + p.total, 0);
+
+  res.json({
+    totalVendido,
+    totalPedidos: pedidos.length,
+    pedidos
+  });
 });
 
 // Reporte del día
