@@ -8,7 +8,7 @@ const App = () => {
   const [pedidosActivos, setPedidosActivos] = useState([]);
   const [pedidoSeleccionado, setPedidoSeleccionado] = useState(null);
   const [categoriaActual, setCategoriaActual] = useState(null);
-  const [vista, setVista] = useState("LISTADO"); // LISTADO, TOMA_PEDIDO, REPORTE
+  const [vista, setVista] = useState("LISTADO"); 
   const [verDetalleTicket, setVerDetalleTicket] = useState(false);
   const [datosReporte, setDatosReporte] = useState(null);
 
@@ -71,7 +71,7 @@ const App = () => {
   };
 
   const cerrarCuenta = async () => {
-    if (!window.confirm(`¿Cerrar cuenta de ${pedidoSeleccionado.mesero}? Se descontará del stock.`)) return;
+    if (!window.confirm(`¿Cerrar cuenta de ${pedidoSeleccionado.mesero}?`)) return;
     try {
       await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/cerrar`);
       setVerDetalleTicket(false);
@@ -86,46 +86,72 @@ const App = () => {
       const res = await axios.get(`${API_URL}/reportes/diario?fecha=${hoy}`);
       setDatosReporte(res.data);
       setVista("REPORTE");
-    } catch (err) { alert("Error al cargar reporte. Asegúrate de haber actualizado el Backend."); }
+    } catch (err) { alert("Error al cargar reporte."); }
   };
 
-  // --- RENDERIZADO DE VISTAS ---
-
+  // --- VISTA DE REPORTE DETALLADO ---
   if (vista === "REPORTE") {
     return (
       <div style={styles.container}>
-        <button onClick={() => setVista("LISTADO")} style={styles.backBtn}>← Volver</button>
-        <h1 style={styles.header}>REPORTE DIARIO</h1>
-        <div style={styles.reportHeader}>
-          <div style={styles.reportCard}><h3>Ventas: ${datosReporte?.totalVendido.toFixed(2)}</h3></div>
-          <div style={styles.reportCard}><h3>Órdenes: {datosReporte?.totalPedidos}</h3></div>
+        <button onClick={() => setVista("LISTADO")} style={styles.backBtn}>← Volver al Inicio</button>
+        <h1 style={styles.header}>CIERRE DE CAJA DIARIO</h1>
+        
+        <div style={styles.reportSummary}>
+          <div style={{...styles.reportCard, borderLeft: '5px solid #2ecc71'}}>
+            <span style={styles.cardLabel}>TOTAL VENDIDO</span>
+            <h2 style={styles.cardValue}>${datosReporte?.totalVendido.toFixed(2)}</h2>
+          </div>
+          <div style={{...styles.reportCard, borderLeft: '5px solid #3498db'}}>
+            <span style={styles.cardLabel}>ORDENES CERRADAS</span>
+            <h2 style={styles.cardValue}>{datosReporte?.totalPedidos}</h2>
+          </div>
         </div>
-        <div style={{marginTop: '20px'}}>
-          {datosReporte?.pedidos.map(p => (
-            <div key={p.id} style={styles.reportItem}>
-              <span>Mesa: {p.mesero}</span>
-              <strong>${p.total.toFixed(2)}</strong>
-            </div>
-          ))}
+
+        <h2 style={{color: '#f1c40f', marginTop: '30px', borderBottom: '1px solid #333', paddingBottom: '10px'}}>Historial de Pedidos</h2>
+        
+        <div style={styles.historyList}>
+          {datosReporte?.pedidos.length === 0 ? <p>No hay ventas registradas hoy.</p> : 
+            datosReporte?.pedidos.map(p => (
+              <div key={p.id} style={styles.historyCard}>
+                <div style={styles.historyCardHeader}>
+                  <strong>Mesa: {p.mesero}</strong>
+                  <span style={styles.historyTotal}>${p.total.toFixed(2)}</span>
+                </div>
+                <div style={styles.historyDetails}>
+                  {p.detallesPedido.map((det, i) => (
+                    <div key={i} style={styles.historyItem}>
+                      <span>{det.cantidad}x {det.producto.nombre}</span>
+                      <span>${(det.producto.precio * det.cantidad).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={styles.historyTime}>
+                  Hora: {new Date(p.fecha).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                </div>
+              </div>
+            ))
+          }
         </div>
       </div>
     );
   }
 
+  // --- VISTA DE LISTADO DE MESAS ---
   if (vista === "LISTADO") {
     return (
       <div style={styles.container}>
         <h1 style={styles.header}>KALI GASTROBAR 🍷</h1>
         <button onClick={nuevoPedido} style={styles.btnNuevo}>+ ABRIR NUEVA MESA</button>
-        <button onClick={consultarReporte} style={styles.btnReporte}>📊 VER CIERRE DE CAJA</button>
+        <button onClick={consultarReporte} style={styles.btnReporte}>📊 VER REPORTE DE VENTAS</button>
         
-        <h2 style={{color: '#f1c40f', marginTop: '30px'}}>Mesas Activas</h2>
+        <h2 style={{color: '#f1c40f', marginTop: '30px', borderBottom: '1px solid #333', paddingBottom: '10px'}}>Mesas Activas</h2>
         <div style={styles.grid}>
-          {pedidosActivos.length === 0 && <p>No hay mesas abiertas.</p>}
+          {pedidosActivos.length === 0 && <p style={{color: '#666'}}>No hay mesas atendiendo en este momento.</p>}
           {pedidosActivos.map(p => (
             <div key={p.id} onClick={() => seleccionarPedido(p)} style={styles.pedidoCard}>
-              <h3>{p.mesero}</h3>
+              <h3 style={{margin: '0 0 10px 0'}}>{p.mesero}</h3>
               <div style={styles.badgeTotal}>${p.total.toFixed(2)}</div>
+              <small style={{color: '#888'}}>Ver pedido →</small>
             </div>
           ))}
         </div>
@@ -133,6 +159,7 @@ const App = () => {
     );
   }
 
+  // --- VISTA DE TOMA DE PEDIDO ---
   return (
     <div style={styles.container}>
       <style>{`
@@ -145,7 +172,7 @@ const App = () => {
       `}</style>
 
       <div style={{display: 'flex', alignItems: 'center', marginBottom: '20px'}}>
-        <button onClick={() => {setVista("LISTADO"); fetchPedidosActivos();}} style={styles.backBtn}>← Inicio</button>
+        <button onClick={() => {setVista("LISTADO"); fetchPedidosActivos();}} style={styles.backBtn}>← Volver</button>
         <h2 style={{margin: '0 0 0 20px', color: '#f1c40f'}}>{pedidoSeleccionado.mesero}</h2>
       </div>
 
@@ -173,15 +200,16 @@ const App = () => {
       )}
 
       <button style={styles.cartFloat} onClick={() => setVerDetalleTicket(true)}>
-        🛒 Cuenta: ${pedidoSeleccionado.total.toFixed(2)}
+        🛒 Ver Cuenta (${pedidoSeleccionado.total.toFixed(2)})
       </button>
 
       <div className="ticket-overlay">
         <div style={styles.ticketHeader}>
-          <h3 style={{margin: 0}}>Detalle Mesa</h3>
+          <h3 style={{margin: 0}}>Kali Gastrobar</h3>
           <button onClick={() => setVerDetalleTicket(false)} style={styles.closeBtn}>×</button>
         </div>
         <div style={{flex: 1, padding: '20px', overflowY: 'auto'}}>
+          <h4 style={{marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px'}}>Detalle: {pedidoSeleccionado.mesero}</h4>
           {pedidoSeleccionado.detallesPedido?.map((det, index) => (
             <div key={index} style={styles.ticketItem}>
               <div style={{display: 'flex', alignItems: 'center'}}>
@@ -206,26 +234,18 @@ const App = () => {
 
 const styles = {
   container: { background: '#121212', color: 'white', minHeight: '100vh', padding: '20px', fontFamily: 'sans-serif', paddingBottom: '100px' },
-  header: { textAlign: 'center', color: '#f1c40f', fontSize: '2rem' },
-  btnNuevo: { width: '100%', padding: '18px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '10px', cursor: 'pointer' },
-  btnReporte: { width: '100%', padding: '12px', background: '#444', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer' },
+  header: { textAlign: 'center', color: '#f1c40f', fontSize: '2.2rem', marginBottom: '25px' },
+  btnNuevo: { width: '100%', padding: '18px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '12px', cursor: 'pointer' },
+  btnReporte: { width: '100%', padding: '12px', background: '#333', color: 'white', border: '1px solid #555', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' },
-  pedidoCard: { background: '#1e1e1e', padding: '20px', borderRadius: '15px', border: '1px solid #333', textAlign: 'center' },
-  badgeTotal: { background: '#2ecc71', color: '#fff', borderRadius: '8px', padding: '5px', fontWeight: 'bold' },
-  catBtn: { height: '110px', color: 'white', border: 'none', borderRadius: '15px', fontSize: '1.2rem', fontWeight: 'bold' },
-  prodBtn: { background: '#2d2d2d', color: 'white', padding: '15px', border: '1px solid #444', borderRadius: '12px' },
-  backBtn: { background: '#333', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '8px' },
-  secondaryBtn: { background: 'none', color: '#f1c40f', border: '1px solid #f1c40f', padding: '10px', borderRadius: '8px', marginBottom: '15px' },
-  cartFloat: { position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: '400px', padding: '18px', background: '#f1c40f', color: '#000', border: 'none', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', zIndex: 100 },
+  pedidoCard: { background: '#1e1e1e', padding: '20px', borderRadius: '15px', border: '1px solid #333', textAlign: 'center', cursor: 'pointer' },
+  badgeTotal: { background: '#2ecc71', color: '#fff', borderRadius: '8px', padding: '6px', fontWeight: 'bold', fontSize: '1.1rem' },
+  catBtn: { height: '110px', color: 'white', border: 'none', borderRadius: '15px', fontSize: '1.3rem', fontWeight: 'bold', cursor: 'pointer' },
+  prodBtn: { background: '#2d2d2d', color: 'white', padding: '15px', border: '1px solid #444', borderRadius: '12px', cursor: 'pointer' },
+  backBtn: { background: '#333', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', cursor: 'pointer', marginBottom: '10px' },
+  secondaryBtn: { background: 'none', color: '#f1c40f', border: '1px solid #f1c40f', padding: '10px', borderRadius: '8px', marginBottom: '15px', cursor: 'pointer' },
+  cartFloat: { position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', width: '92%', maxWidth: '400px', padding: '20px', background: '#f1c40f', color: '#000', border: 'none', borderRadius: '50px', fontSize: '1.2rem', fontWeight: 'bold', zIndex: 100, boxShadow: '0 8px 25px rgba(0,0,0,0.5)' },
   ticketHeader: { padding: '20px', background: '#f8f9fa', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #ddd' },
-  closeBtn: { fontSize: '1.8rem', border: 'none', background: 'none' },
-  ticketItem: { display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #eee', alignItems: 'center' },
-  btnMinus: { background: '#ff7675', color: 'white', border: 'none', borderRadius: '5px', width: '28px', height: '28px', marginRight: '10px' },
-  ticketFooter: { padding: '20px', background: '#fff', borderTop: '2px solid #333' },
-  payBtn: { width: '100%', padding: '18px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.2rem', fontWeight: 'bold' },
-  reportHeader: { display: 'flex', gap: '15px', marginTop: '20px' },
-  reportCard: { flex: 1, background: '#222', padding: '15px', borderRadius: '12px', textAlign: 'center', border: '1px solid #333' },
-  reportItem: { display: 'flex', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #333' }
-};
-
-export default App;
+  closeBtn: { fontSize: '2rem', border: 'none', background: 'none', cursor: 'pointer' },
+  ticketItem: { display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #eee', alignItems: 'center' },
+  btnMinus: { background: '#ff7675', color: 'white', border: 'none', borderRadius: '6px', width: '3
