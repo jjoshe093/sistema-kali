@@ -14,12 +14,13 @@ datasource db {
 
 // schema.prisma
 model Producto {
-  id          Int      @id @default(autoincrement())
-  nombre      String
-  precio      Float
-  stock       Int      // Para bebidas
-  esComida    Boolean  @default(false) // Las comidas no suelen restar stock igual que bebidas
-  detalles    DetallePedido[]
+  id             Int             @id @default(autoincrement())
+  nombre         String
+  precio         Float
+  stock          Int             @default(0)
+  esComida       Boolean         @default(false)
+  categoria      String          @default("Bebidas") // <--- Añade esta línea
+  detallesPedido DetallePedido[]
 }
 
 model Pedido {
