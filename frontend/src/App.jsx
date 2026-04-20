@@ -1,78 +1,122 @@
-// frontend/src/App.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-// Asegúrate de que termine en /api tal cual como en tu prueba exitosa
-const API_URL = "https://sistema-kali-production.up.railway.app/api"; // <-- PEGA TU URL DE RAILWAY AQUÍ
+// Cambia esto por tu URL real de Railway
+const API_URL = "https://sistema-kali-production.up.railway.app/api";
 
-function App() {
+const App = () => {
   const [productos, setProductos] = useState([]);
-  const [carrito, setCarrito] = useState([]);
+  const [pedido, setPedido] = useState([]);
   const [mesero, setMesero] = useState("");
 
-  // Cargar productos al iniciar
   useEffect(() => {
-    axios.get(`${API_URL}/productos`).then(res => setProductos(res.data));
+    const fetchProductos = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/productos`);
+        setProductos(res.data);
+      } catch (err) {
+        console.error("Error cargando productos", err);
+      }
+    };
+    fetchProductos();
   }, []);
 
-  const agregarAlPedido = (producto) => {
-    setCarrito([...carrito, producto]);
+  const agregarAlPedido = (prod) => {
+    const existe = pedido.find(item => item.id === prod.id);
+    if (existe) {
+      setPedido(pedido.map(item => 
+        item.id === prod.id ? { ...item, cantidad: item.cantidad + 1 } : item
+      ));
+    } else {
+      setPedido([...pedido, { ...prod, cantidad: 1 }]);
+    }
   };
 
-  const enviarPedido = async () => {
-    if (!mesero || carrito.length === 0) return alert("Falta nombre o productos");
-    
+  const total = pedido.reduce((acc, item) => acc + (item.precio * item.cantidad), 0);
+
+  const finalizarPedido = async () => {
+    if (!mesero || pedido.length === 0) return alert("Falta nombre o productos");
     try {
       await axios.post(`${API_URL}/ventas`, {
         mesero,
-        productos: carrito.map(p => ({ id: p.id, cantidad: 1 }))
+        productos: pedido.map(p => ({ id: p.id, cantidad: p.cantidad }))
       });
-      alert("¡Venta registrada!");
-      setCarrito([]);
-    } catch (error) {
-      alert("Error al enviar");
+      alert("¡Venta guardada!");
+      setPedido([]);
+      setMesero("");
+    } catch (err) {
+      alert("Error al cobrar");
     }
   };
 
   return (
-    <div className="p-4 font-sans">
-      <h1 className="text-2xl font-bold mb-4">Toma de Pedidos 🍕🥤</h1>
-      
-      <input 
-        className="border p-2 mb-4 w-full" 
-        placeholder="Nombre del Mesero/Mesa" 
-        onChange={(e) => setMesero(e.target.value)}
-      />
-
-      <div className="grid grid-cols-2 gap-2 mb-6">
-        {productos.map(p => (
-          <button 
-            key={p.id} 
-            onClick={() => agregarAlPedido(p)}
-            className="bg-blue-500 text-white p-4 rounded-lg shadow"
-          >
-            {p.nombre} - ${p.precio}
-          </button>
-        ))}
+    <div style={styles.container}>
+      {/* SECCIÓN IZQUIERDA: MENÚ */}
+      <div style={styles.menuSection}>
+        <h2 style={styles.title}>Menú 🍕🥤</h2>
+        <div style={styles.grid}>
+          {productos.map(p => (
+            <button key={p.id} onClick={() => agregarAlPedido(p)} style={styles.card}>
+              <span style={styles.prodName}>{p.nombre}</span>
+              <span style={styles.prodPrice}>${p.precio.toFixed(2)}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="border-t pt-4">
-        <h2 className="font-bold">Pedido Actual:</h2>
-        {carrito.map((item, index) => (
-          <div key={index} className="flex justify-between border-b py-1">
-            <span>{item.nombre}</span>
-            <span>${item.precio}</span>
-          </div>
-        ))}
-        <button 
-          onClick={enviarPedido}
-          className="w-full bg-green-600 text-white p-3 mt-4 rounded-xl font-bold"
-        >
-          Finalizar y Cobrar
+      {/* SECCIÓN DERECHA: TICKET */}
+      <div style={styles.orderSection}>
+        <h2 style={styles.title}>Pedido Actual</h2>
+        <input 
+          placeholder="Nombre del Mesero / Mesa" 
+          value={mesero}
+          onChange={(e) => setMesero(e.target.value)}
+          style={styles.input}
+        />
+        
+        <div style={styles.ticket}>
+          {pedido.map(item => (
+            <div key={item.id} style={styles.ticketItem}>
+              <span>{item.cantidad}x {item.nombre}</span>
+              <span>${(item.precio * item.cantidad).toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={styles.totalRow}>
+          <strong>TOTAL:</strong>
+          <strong>${total.toFixed(2)}</strong>
+        </div>
+
+        <button onClick={finalizarPedido} style={styles.buttonCobrar}>
+          FINALIZAR Y COBRAR
         </button>
       </div>
     </div>
   );
-}
+};
+
+// DISEÑO (CSS-in-JS)
+const styles = {
+  container: { display: 'flex', height: '100vh', fontFamily: 'sans-serif', backgroundColor: '#f4f4f9' },
+  menuSection: { flex: 2, padding: '20px', overflowY: 'auto' },
+  orderSection: { flex: 1, backgroundColor: '#fff', borderLeft: '2px solid #ddd', padding: '20px', display: 'flex', flexDirection: 'column' },
+  title: { borderBottom: '2px solid #eee', paddingBottom: '10px', color: '#333' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' },
+  card: { 
+    display: 'flex', flexDirection: 'column', padding: '20px', border: 'none', borderRadius: '12px',
+    backgroundColor: '#fff', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', cursor: 'pointer', transition: '0.2s', textAlign: 'center'
+  },
+  prodName: { fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '5px' },
+  prodPrice: { color: '#27ae60', fontWeight: 'bold' },
+  input: { padding: '12px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '20px', fontSize: '1rem' },
+  ticket: { flex: 1, overflowY: 'auto', marginBottom: '20px' },
+  ticketItem: { display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px dashed #eee' },
+  totalRow: { display: 'flex', justifyContent: 'space-between', fontSize: '1.5rem', padding: '20px 0', borderTop: '2px solid #333' },
+  buttonCobrar: { 
+    padding: '20px', backgroundColor: '#e67e22', color: 'white', border: 'none', borderRadius: '10px', 
+    fontSize: '1.2rem', fontWeight: 'bold', cursor: 'pointer' 
+  }
+};
 
 export default App;
