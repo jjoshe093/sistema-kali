@@ -142,33 +142,39 @@ app.put('/api/pedidos/:id/cerrar', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const resultado = await prisma.$transaction(async (tx) => {
-      // 1. Obtener el detalle del pedido antes de cerrar
-      const detalles = await tx.detallePedido.findMany({
-        where: { pedidoId: parseInt(id) },
-        include: { producto: true }
+    await prisma.$transaction(async (tx) => {
+      // 1. Buscamos el pedido con sus productos para saber qué descontar
+      const pedido = await tx.pedido.findUnique({
+        where: { id: parseInt(id) },
+        include: { detallesPedido: { include: { producto: true } } }
       });
 
-      // 2. Descontar stock solo de productos que NO son comida (bebidas/cocteles)
-      for (const item of detalles) {
-        if (!item.producto.esComida) {
-          await tx.producto.update({
-            where: { id: item.productoId },
-            data: { stock: { decrement: item.cantidad } }
-          });
-        }
+      if (!pedido) throw new Error("Pedido no encontrado");
+
+      // 2. Recorremos los productos y restamos la cantidad del stock
+      for (const detalle of pedido.detallesPedido) {
+        // Solo descontamos si el producto tiene stock manejable (puedes filtrar por categoría si quieres)
+        await tx.producto.update({
+          where: { id: detalle.productoId },
+          data: {
+            stock: {
+              decrement: detalle.cantidad // RESTA la cantidad vendida del stock actual
+            }
+          }
+        });
       }
 
-      // 3. Cambiar estado a CERRADO
-      return await tx.pedido.update({
+      // 3. Cambiamos el estado a CERRADO (NO lo eliminamos)
+      await tx.pedido.update({
         where: { id: parseInt(id) },
         data: { estado: "CERRADO" }
       });
     });
 
-    res.json(resultado);
+    res.json({ message: "Pedido cerrado con éxito y stock actualizado" });
   } catch (error) {
-    res.status(500).json({ error: "Error al cerrar cuenta y descontar stock" });
+    console.error(error);
+    res.status(500).json({ error: "No se pudo cerrar el pedido correctamente" });
   }
 });
 
