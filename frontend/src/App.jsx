@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API_URL = "https://tu-app-en-railway.up.railway.app/api"; // <-- PEGA TU URL DE RAILWAY AQUÍ
+const API_URL = "sistema-kali-production.up.railway.app"; // <-- PEGA TU URL DE RAILWAY AQUÍ
 
 function App() {
   const [productos, setProductos] = useState([]);
