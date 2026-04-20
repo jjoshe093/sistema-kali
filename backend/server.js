@@ -56,6 +56,16 @@ app.post('/api/ventas', async (req, res) => {
   }
 });
 
+// OBTENER TODOS LOS PRODUCTOS
+app.get('/api/productos', async (req, res) => {
+  try {
+    const productos = await prisma.producto.findMany();
+    res.json(productos);
+  } catch (error) {
+    res.status(500).json({ error: "Error al obtener productos" });
+  }
+});
+
 // Reporte del día
 app.get('/api/reporte-diario', async (req, res) => {
   const hoy = new Date();
