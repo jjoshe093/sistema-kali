@@ -2,8 +2,10 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const cors = require('cors'); // Asegúrate de haber hecho: npm install cors
 const app = express();
 
+app.use(cors()); // Esto le dice al backend: "Acepta peticiones de cualquier sitio"
 app.use(express.json());
 
 // Registrar una venta
