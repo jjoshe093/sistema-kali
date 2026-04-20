@@ -127,4 +127,48 @@ app.get('/api/reporte-diario', async (req, res) => {
   res.json({ ventasTotales: ventasHoy._sum.total || 0 });
 });
 
+// RUTA PARA RESTAR 1 O QUITAR PRODUCTO
+app.put('/api/pedidos/:id/eliminar', async (req, res) => {
+  const { id } = req.params;
+  const { productoId } = req.body;
+
+  try {
+    const actualizado = await prisma.$transaction(async (tx) => {
+      // 1. Buscar el detalle de ese producto en ese pedido
+      const detalle = await tx.detallePedido.findFirst({
+        where: { 
+          pedidoId: parseInt(id),
+          productoId: parseInt(productoId)
+        },
+        include: { producto: true }
+      });
+
+      if (!detalle) return;
+
+      // 2. Restar el precio del total del pedido
+      await tx.pedido.update({
+        where: { id: parseInt(id) },
+        data: { total: { decrement: detalle.producto.precio } }
+      });
+
+      // 3. Si hay más de uno, restamos cantidad. Si hay solo uno, borramos la fila.
+      if (detalle.cantidad > 1) {
+        return await tx.detallePedido.update({
+          where: { id: detalle.id },
+          data: { cantidad: { decrement: 1 } }
+        });
+      } else {
+        return await tx.detallePedido.delete({
+          where: { id: detalle.id }
+        });
+      }
+    });
+
+    res.json({ msg: "Producto restado", actualizado });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error al eliminar producto" });
+  }
+});
+
 app.listen(process.env.PORT || 3000);
