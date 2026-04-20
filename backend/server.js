@@ -143,7 +143,6 @@ app.put('/api/pedidos/:id/cerrar', async (req, res) => {
 
   try {
     await prisma.$transaction(async (tx) => {
-      // 1. Buscamos el pedido con sus productos para saber qué descontar
       const pedido = await tx.pedido.findUnique({
         where: { id: parseInt(id) },
         include: { detallesPedido: { include: { producto: true } } }
@@ -151,30 +150,30 @@ app.put('/api/pedidos/:id/cerrar', async (req, res) => {
 
       if (!pedido) throw new Error("Pedido no encontrado");
 
-      // 2. Recorremos los productos y restamos la cantidad del stock
       for (const detalle of pedido.detallesPedido) {
-        // Solo descontamos si el producto tiene stock manejable (puedes filtrar por categoría si quieres)
-        await tx.producto.update({
-          where: { id: detalle.productoId },
-          data: {
-            stock: {
-              decrement: detalle.cantidad // RESTA la cantidad vendida del stock actual
+        // --- FILTRO DE CATEGORÍA ---
+        // Solo descuenta si la categoría es exactamente "Bebidas"
+        if (detalle.producto.categoria === "Bebidas") {
+          await tx.producto.update({
+            where: { id: detalle.productoId },
+            data: {
+              stock: { decrement: detalle.cantidad }
             }
-          }
-        });
+          });
+        }
+        // Si es "Comida" o "Cocteles", el sistema ignora el descuento de stock
       }
 
-      // 3. Cambiamos el estado a CERRADO (NO lo eliminamos)
       await tx.pedido.update({
         where: { id: parseInt(id) },
         data: { estado: "CERRADO" }
       });
     });
 
-    res.json({ message: "Pedido cerrado con éxito y stock actualizado" });
+    res.json({ message: "Pedido cerrado. Stock de bebidas actualizado." });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "No se pudo cerrar el pedido correctamente" });
+    res.status(500).json({ error: "Error al cerrar el pedido" });
   }
 });
 
