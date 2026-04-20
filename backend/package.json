@@ -4,8 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-  "start": "npx prisma generate && node server.js",
-  "postinstall": "prisma generate"
+  "start": "npx prisma generate && node server.js"
 },
   "keywords": [],
   "author": "",
