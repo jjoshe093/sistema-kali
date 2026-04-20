@@ -24,11 +24,12 @@ model Producto {
 }
 
 model Pedido {
-  id          Int      @id @default(autoincrement())
-  fecha       DateTime @default(now())
-  total       Float    @default(0)
-  mesero      String
-  detalles    DetallePedido[]
+  id             Int             @id @default(autoincrement())
+  mesero         String
+  fecha          DateTime        @default(now())
+  total          Float           @default(0)
+  estado         String          @default("ABIERTO") // "ABIERTO" o "CERRADO"
+  detallesPedido DetallePedido[]
 }
 
 model DetallePedido {

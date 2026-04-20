@@ -66,6 +66,54 @@ app.get('/api/productos', async (req, res) => {
   }
 });
 
+// 1. Obtener solo pedidos abiertos
+app.get('/api/pedidos/activos', async (req, res) => {
+  const activos = await prisma.pedido.findMany({
+    where: { estado: "ABIERTO" },
+    include: { detallesPedido: { include: { producto: true } } }
+  });
+  res.json(activos);
+});
+
+// 2. Crear pedido nuevo (o inicial)
+app.post('/api/pedidos/nuevo', async (req, res) => {
+  const { mesero } = req.body;
+  const nuevo = await prisma.pedido.create({ data: { mesero, total: 0 } });
+  res.json(nuevo);
+});
+
+// 3. Agregar productos a un pedido existente
+app.put('/api/pedidos/:id/agregar', async (req, res) => {
+  const { id } = req.params;
+  const { productos } = req.body; // [{id, cantidad}]
+
+  const actualizado = await prisma.$transaction(async (tx) => {
+    let extraTotal = 0;
+    for (const p of productos) {
+      const prodDb = await tx.producto.findUnique({ where: { id: p.id } });
+      extraTotal += prodDb.precio * p.cantidad;
+      await tx.detallePedido.create({
+        data: { pedidoId: parseInt(id), productoId: p.id, cantidad: p.cantidad }
+      });
+    }
+    return await tx.pedido.update({
+      where: { id: parseInt(id) },
+      data: { total: { increment: extraTotal } }
+    });
+  });
+  res.json(actualizado);
+});
+
+// 4. Cerrar pedido (Pagar)
+app.put('/api/pedidos/:id/cerrar', async (req, res) => {
+  const { id } = req.params;
+  await prisma.pedido.update({
+    where: { id: parseInt(id) },
+    data: { estado: "CERRADO" }
+  });
+  res.json({ msg: "Pedido cerrado" });
+});
+
 // Reporte del día
 app.get('/api/reporte-diario', async (req, res) => {
   const hoy = new Date();
