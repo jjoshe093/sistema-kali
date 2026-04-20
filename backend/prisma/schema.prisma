@@ -1,0 +1,40 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// schema.prisma
+model Producto {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  precio      Float
+  stock       Int      // Para bebidas
+  esComida    Boolean  @default(false) // Las comidas no suelen restar stock igual que bebidas
+  detalles    DetallePedido[]
+}
+
+model Pedido {
+  id          Int      @id @default(autoincrement())
+  fecha       DateTime @default(now())
+  total       Float    @default(0)
+  mesero      String
+  detalles    DetallePedido[]
+}
+
+model DetallePedido {
+  id          Int      @id @default(autoincrement())
+  pedidoId    Int
+  productoId  Int
+  cantidad    Int
+  pedido      Pedido   @relation(fields: [pedidoId], references: [id])
+  producto    Producto @relation(fields: [productoId], references: [id])
+}
