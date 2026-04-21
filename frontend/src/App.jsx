@@ -70,19 +70,18 @@ const App = () => {
     } catch (err) { alert("Error al cerrar"); }
   };
 
-  // --- SELECTOR MANTENIENDO EL DISEÑO ---
   const SelectorCerveza = () => (
     <div style={styles.modalOverlay}>
       <div style={styles.modalContent}>
         <h3 style={{color: '#333'}}>Selecciona la cerveza base</h3>
         <div style={{maxHeight: '300px', overflowY: 'auto'}}>
-          {productos.filter(p => p.categoria === "Bebidas" && !p.nombre.toLowerCase().includes("michelada")).map(c => (
+          {productos.filter(p => p.esCerveza === true).map(c => (
             <button key={c.id} onClick={() => agregarProducto(c, true)} style={styles.modalBtn}>
               {c.nombre} (${c.precio.toFixed(2)})
             </button>
           ))}
         </div>
-        <button onClick={() => setMostrarSelectorCerveza(false)} style={{...styles.modalBtn, background: '#e74c3c', color: 'white', marginTop: '10px'}}>Cancelar</button>
+        <button onClick={() => setMostrarSelectorCerveza(false)} style={{...styles.modalBtn, background: '#e74c3c', color: 'white', marginTop: '10px', textAlign: 'center'}}>Cancelar</button>
       </div>
     </div>
   );
@@ -160,14 +159,10 @@ const App = () => {
       {mostrarSelectorCerveza && <SelectorCerveza />}
       <button onClick={() => setVista("LISTADO")} style={styles.backBtn}>← Volver</button>
       <h2 style={{color: '#f1c40f', textAlign:'center'}}>{pedidoSeleccionado?.mesero}</h2>
-      
       {!categoriaActual ? (
         <div style={styles.grid}>
           {["Bebidas", "Cocteles", "Comida"].map(cat => (
-            <button key={cat} onClick={() => setCategoriaActual(cat)} 
-              style={{...styles.catBtn, background: cat === 'Comida' ? '#e67e22' : cat === 'Cocteles' ? '#9b59b6' : '#3498db'}}>
-              {cat}
-            </button>
+            <button key={cat} onClick={() => setCategoriaActual(cat)} style={{...styles.catBtn, background: cat === 'Comida' ? '#e67e22' : cat === 'Cocteles' ? '#9b59b6' : '#3498db'}}>{cat}</button>
           ))}
         </div>
       ) : (
@@ -182,11 +177,7 @@ const App = () => {
           </div>
         </div>
       )}
-
-      <button style={styles.cartFloat} onClick={() => setVerDetalleTicket(true)}>
-        🛒 Cuenta: ${pedidoSeleccionado?.total.toFixed(2)}
-      </button>
-
+      <button style={styles.cartFloat} onClick={() => setVerDetalleTicket(true)}>🛒 Cuenta: ${pedidoSeleccionado?.total.toFixed(2)}</button>
       {verDetalleTicket && (
         <div style={styles.modalOverlay}>
           <div style={{...styles.modalContent, color: '#333', maxHeight: '85vh', overflowY: 'auto'}}>
@@ -194,20 +185,16 @@ const App = () => {
                <h3>Detalle Mesa</h3>
                <button onClick={() => setVerDetalleTicket(false)} style={{border:'none', background:'none', fontSize: '1.5rem'}}>×</button>
             </div>
-            <div style={{textAlign: 'left', margin: '15px 0'}}>
-              {pedidoSeleccionado.detallesPedido.map((d, i) => (
-                <div key={i} style={styles.ticketItem}>
-                  <div style={{display:'flex', alignItems: 'center', gap: '10px'}}>
-                    <button onClick={() => eliminarProducto(d.productoId, d.nota)} style={styles.btnMinus}>-</button>
-                    <span>{d.cantidad}x {d.nota === "MICHELADA" ? "Michelada " : ""}{d.producto.nombre}</span>
-                  </div>
-                  <span>${(d.producto.precio * d.cantidad).toFixed(2)}</span>
+            {pedidoSeleccionado.detallesPedido.map((d, i) => (
+              <div key={i} style={styles.ticketItem}>
+                <div style={{display:'flex', alignItems: 'center', gap: '10px'}}>
+                  <button onClick={() => eliminarProducto(d.productoId, d.nota)} style={styles.btnMinus}>-</button>
+                  <span>{d.cantidad}x {d.nota === "MICHELADA" ? "Michelada " : ""}{d.producto.nombre}</span>
                 </div>
-              ))}
-            </div>
-            <div style={{fontWeight: 'bold', fontSize: '1.8rem', borderTop: '2px solid #eee', paddingTop: '15px'}}>
-              TOTAL: ${pedidoSeleccionado.total.toFixed(2)}
-            </div>
+                <span>${(d.producto.precio * d.cantidad).toFixed(2)}</span>
+              </div>
+            ))}
+            <div style={{fontWeight: 'bold', fontSize: '1.8rem', borderTop: '2px solid #eee', paddingTop: '15px'}}>TOTAL: ${pedidoSeleccionado.total.toFixed(2)}</div>
             <button onClick={cerrarCuenta} style={styles.payBtn}>CERRAR Y COBRAR</button>
           </div>
         </div>
