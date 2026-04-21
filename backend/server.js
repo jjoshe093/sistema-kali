@@ -33,27 +33,23 @@ app.post('/api/pedidos/nuevo', async (req, res) => {
   res.json(nuevo);
 });
 
-// --- AGREGAR PRODUCTO (Soporta Micheladas y no duplica) ---
+// --- AGREGAR PRODUCTO (Precio Respetado) ---
 app.put('/api/pedidos/:id/agregar', async (req, res) => {
   const { id } = req.params;
-  const { productos } = req.body; // [{id, cantidad, esMichelada}]
+  const { productos } = req.body; 
 
   try {
     await prisma.$transaction(async (tx) => {
       for (const p of productos) {
         const prodDb = await tx.producto.findUnique({ where: { id: p.id } });
         
-        // Precio: si es michelada sumamos $1.50 (ajusta el valor a tu gusto)
-        const cargoExtra = p.esMichelada ? 0 : 0;
-        const precioAplicado = prodDb.precio + cargoExtra;
-        const nombreParaTicket = p.esMichelada ? `Michelada ${prodDb.nombre}` : prodDb.nombre;
+        // Respetamos el precio del producto original tal cual está en la DB
+        const precioAplicado = prodDb.precio;
 
-        // Buscamos si ya existe EXACTAMENTE ese item (misma cerveza y mismo tipo)
         const detalleExistente = await tx.detallePedido.findFirst({
           where: {
             pedidoId: parseInt(id),
             productoId: p.id,
-            // Usamos la nota para diferenciar Michelada de Cerveza sola
             nota: p.esMichelada ? "MICHELADA" : ""
           }
         });
@@ -74,7 +70,6 @@ app.put('/api/pedidos/:id/agregar', async (req, res) => {
           });
         }
 
-        // Actualizar el total del pedido
         await tx.pedido.update({
           where: { id: parseInt(id) },
           data: { total: { increment: precioAplicado * p.cantidad } }
@@ -87,7 +82,7 @@ app.put('/api/pedidos/:id/agregar', async (req, res) => {
   }
 });
 
-// --- RESTAR / QUITAR PRODUCTO ---
+// --- RESTAR PRODUCTO ---
 app.put('/api/pedidos/:id/eliminar', async (req, res) => {
   const { id } = req.params;
   const { productoId, esMichelada } = req.body;
@@ -105,7 +100,8 @@ app.put('/api/pedidos/:id/eliminar', async (req, res) => {
 
       if (!detalle) return;
 
-      const precioARestar = esMichelada ? detalle.producto.precio + 0 : detalle.producto.precio;
+      // Restamos el precio original del producto
+      const precioARestar = detalle.producto.precio;
 
       await tx.pedido.update({
         where: { id: parseInt(id) },
@@ -125,7 +121,7 @@ app.put('/api/pedidos/:id/eliminar', async (req, res) => {
   } catch (error) { res.status(500).json(error); }
 });
 
-// --- CERRAR PEDIDO (Descuenta stock solo de Bebidas) ---
+// --- CERRAR PEDIDO (Descuento de Stock) ---
 app.put('/api/pedidos/:id/cerrar', async (req, res) => {
   const { id } = req.params;
   try {
@@ -168,4 +164,4 @@ app.get('/api/reportes/diario', async (req, res) => {
   res.json({ totalVendido, totalPedidos: pedidos.length, pedidos });
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Servidor listo"));
+app.listen(process.env.PORT || 3000, () => console.log("Servidor Kali listo"));
