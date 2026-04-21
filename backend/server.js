@@ -33,7 +33,7 @@ app.post('/api/pedidos/nuevo', async (req, res) => {
   res.json(nuevo);
 });
 
-// --- AGREGAR PRODUCTO (Precio Respetado) ---
+// --- AGREGAR PRODUCTO ---
 app.put('/api/pedidos/:id/agregar', async (req, res) => {
   const { id } = req.params;
   const { productos } = req.body; 
@@ -42,8 +42,6 @@ app.put('/api/pedidos/:id/agregar', async (req, res) => {
     await prisma.$transaction(async (tx) => {
       for (const p of productos) {
         const prodDb = await tx.producto.findUnique({ where: { id: p.id } });
-        
-        // Respetamos el precio del producto original tal cual está en la DB
         const precioAplicado = prodDb.precio;
 
         const detalleExistente = await tx.detallePedido.findFirst({
@@ -82,7 +80,7 @@ app.put('/api/pedidos/:id/agregar', async (req, res) => {
   }
 });
 
-// --- RESTAR PRODUCTO ---
+// --- ELIMINAR PRODUCTO ---
 app.put('/api/pedidos/:id/eliminar', async (req, res) => {
   const { id } = req.params;
   const { productoId, esMichelada } = req.body;
@@ -99,8 +97,6 @@ app.put('/api/pedidos/:id/eliminar', async (req, res) => {
       });
 
       if (!detalle) return;
-
-      // Restamos el precio original del producto
       const precioARestar = detalle.producto.precio;
 
       await tx.pedido.update({
@@ -121,7 +117,7 @@ app.put('/api/pedidos/:id/eliminar', async (req, res) => {
   } catch (error) { res.status(500).json(error); }
 });
 
-// --- CERRAR PEDIDO (Descuento de Stock) ---
+// --- CERRAR CUENTA (Descuenta stock solo Bebidas) ---
 app.put('/api/pedidos/:id/cerrar', async (req, res) => {
   const { id } = req.params;
   try {
@@ -164,4 +160,4 @@ app.get('/api/reportes/diario', async (req, res) => {
   res.json({ totalVendido, totalPedidos: pedidos.length, pedidos });
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Servidor Kali listo"));
+app.listen(process.env.PORT || 3000, () => console.log("Servidor Kali Gastrobar"));
