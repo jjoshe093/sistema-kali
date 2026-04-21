@@ -39,46 +39,54 @@ app.post('/api/pedidos/nuevo', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- AGREGAR PRODUCTO (Lógica de agrupación y Micheladas) ---
+// --- AGREGAR PRODUCTO (CORREGIDO) ---
 app.put('/api/pedidos/:id/agregar', async (req, res) => {
   const { id } = req.params;
   const { productoId, cantidad, productoBaseId, nombreMostrar } = req.body; 
 
   try {
-    const prodPrincipal = await prisma.producto.findUnique({ where: { id: parseInt(productoId) } });
-    const nombreFinal = nombreMostrar || prodPrincipal.nombre;
+    const resultado = await prisma.$transaction(async (tx) => {
+      const prodPrincipal = await tx.producto.findUnique({ where: { id: parseInt(productoId) } });
+      if (!prodPrincipal) throw new Error("Producto no encontrado");
 
-    const detalleExistente = await prisma.detallePedido.findFirst({
-      where: {
-        pedidoId: parseInt(id),
-        productoId: parseInt(productoId),
-        nombrePersonalizado: nombreFinal
-      }
-    });
+      const nombreFinal = nombreMostrar || prodPrincipal.nombre;
 
-    if (detalleExistente) {
-      await prisma.detallePedido.update({
-        where: { id: detalleExistente.id },
-        data: { cantidad: { increment: cantidad } }
-      });
-    } else {
-      await prisma.detallePedido.create({
-        data: {
+      const detalleExistente = await tx.detallePedido.findFirst({
+        where: {
           pedidoId: parseInt(id),
           productoId: parseInt(productoId),
-          productoBaseId: productoBaseId ? parseInt(productoBaseId) : null,
-          nombrePersonalizado: nombreFinal,
-          cantidad: cantidad
+          nombrePersonalizado: nombreFinal
         }
       });
-    }
 
-    await tx.pedido.update({
-      where: { id: parseInt(id) },
-      data: { total: { increment: prodPrincipal.precio * cantidad } }
+      if (detalleExistente) {
+        await tx.detallePedido.update({
+          where: { id: detalleExistente.id },
+          data: { cantidad: { increment: cantidad } }
+        });
+      } else {
+        await tx.detallePedido.create({
+          data: {
+            pedidoId: parseInt(id),
+            productoId: parseInt(productoId),
+            productoBaseId: productoBaseId ? parseInt(productoBaseId) : null,
+            nombrePersonalizado: nombreFinal,
+            cantidad: cantidad
+          }
+        });
+      }
+
+      return await tx.pedido.update({
+        where: { id: parseInt(id) },
+        data: { total: { increment: prodPrincipal.precio * cantidad } }
+      });
     });
-    res.json({ success: true });
-  } catch (error) { res.status(500).json({ error: error.message }); }
+
+    res.json({ success: true, pedido: resultado });
+  } catch (error) {
+    console.error("ERROR EN AGREGAR:", error.message);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // --- ELIMINAR PRODUCTO ---
@@ -86,24 +94,32 @@ app.put('/api/pedidos/:id/eliminar', async (req, res) => {
   const { id } = req.params;
   const { detalleId } = req.body;
   try {
-    const detalle = await prisma.detallePedido.findUnique({
-      where: { id: parseInt(detalleId) },
-      include: { producto: true }
+    const resultado = await prisma.$transaction(async (tx) => {
+      const detalle = await tx.detallePedido.findUnique({
+        where: { id: parseInt(detalleId) },
+        include: { producto: true }
+      });
+      if (!detalle) throw new Error("No encontrado");
+
+      await tx.pedido.update({ 
+        where: { id: parseInt(id) }, 
+        data: { total: { decrement: detalle.producto.precio } } 
+      });
+
+      if (detalle.cantidad > 1) {
+        return await tx.detallePedido.update({ 
+          where: { id: detalle.id }, 
+          data: { cantidad: { decrement: 1 } } 
+        });
+      } else {
+        return await tx.detallePedido.delete({ where: { id: detalle.id } });
+      }
     });
-    if (!detalle) return res.status(404).send("No encontrado");
-
-    await prisma.pedido.update({ where: { id: parseInt(id) }, data: { total: { decrement: detalle.producto.precio } } });
-
-    if (detalle.cantidad > 1) {
-      await prisma.detallePedido.update({ where: { id: detalle.id }, data: { cantidad: { decrement: 1 } } });
-    } else {
-      await prisma.detallePedido.delete({ where: { id: detalle.id } });
-    }
     res.json({ success: true });
-  } catch (error) { res.status(500).json(error); }
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// --- CERRAR CUENTA Y DESCONTAR STOCK ---
+// --- CERRAR CUENTA ---
 app.put('/api/pedidos/:id/cerrar', async (req, res) => {
   const { id } = req.params;
   try {
@@ -123,21 +139,18 @@ app.put('/api/pedidos/:id/cerrar', async (req, res) => {
       await tx.pedido.update({ where: { id: parseInt(id) }, data: { estado: "CERRADO", fecha: new Date() } });
     });
     res.json({ success: true });
-  } catch (error) { res.status(500).json(error); }
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// --- REPORTE DIARIO CORREGIDO ---
+// --- REPORTE DIARIO ---
 app.get('/api/reportes/diario', async (req, res) => {
-  const { fecha } = req.query; // Formato YYYY-MM-DD
+  const { fecha } = req.query;
   try {
     const inicio = new Date(`${fecha}T00:00:00.000Z`);
     const fin = new Date(`${fecha}T23:59:59.999Z`);
 
     const pedidos = await prisma.pedido.findMany({
-      where: { 
-        estado: "CERRADO",
-        fecha: { gte: inicio, lte: fin }
-      },
+      where: { estado: "CERRADO", fecha: { gte: inicio, lte: fin } },
       include: { detallesPedido: { include: { producto: true } } },
       orderBy: { fecha: 'desc' }
     });
