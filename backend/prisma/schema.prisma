@@ -20,6 +20,7 @@ model Producto {
   stock          Int             @default(0)
   esComida       Boolean         @default(false)
   categoria      String          @default("Bebidas") // <--- Añade esta línea
+  esCerveza   	 Boolean  	 @default(false) // <--- NUEVO CAMPO
   detallesPedido DetallePedido[]
 }
 

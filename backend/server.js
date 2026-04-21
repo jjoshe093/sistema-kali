@@ -83,45 +83,52 @@ app.post('/api/pedidos/nuevo', async (req, res) => {
 });
 
 // 3. Agregar productos a un pedido existente
-// AGREGAR PRODUCTO (EVITANDO DUPLICADOS)
 app.put('/api/pedidos/:id/agregar', async (req, res) => {
   const { id } = req.params;
-  const { productos } = req.body; // Esperamos [{id, cantidad}]
+  const { productos } = req.body; 
 
   try {
-    const actualizado = await prisma.$transaction(async (tx) => {
-      let extraTotal = 0;
-
+    await prisma.$transaction(async (tx) => {
       for (const p of productos) {
-        const prodDb = await tx.producto.findUnique({ where: { id: p.id } });
-        extraTotal += prodDb.precio * p.cantidad;
+        // p.id ahora será el ID de la CERVEZA seleccionada para la michelada
+        // p.esMichelada será un flag que viene del front
+        
+        const cervezaDb = await tx.producto.findUnique({ where: { id: p.id } });
+        
+        // Si es michelada, sumamos el precio del preparado (ej. $1.50)
+        const precioFinal = p.esMichelada ? cervezaDb.precio + 1.50 : cervezaDb.precio;
+        const nombreFinal = p.esMichelada ? `Michelada ${cervezaDb.nombre}` : cervezaDb.nombre;
 
-        // 1. BUSCAR SI YA EXISTE EL PRODUCTO EN ESTE PEDIDO
-        const detalleExistente = await tx.detallePedido.findFirst({
-          where: {
-            pedidoId: parseInt(id),
-            productoId: p.id
-          }
+        // Buscamos si ya existe ese mismo item en el pedido
+        const existente = await tx.detallePedido.findFirst({
+          where: { pedidoId: parseInt(id), productoId: p.id, nota: p.esMichelada ? "MICHELADA" : "" }
         });
 
-        if (detalleExistente) {
-          // 2. SI EXISTE: Solo aumentamos la cantidad
+        if (existente) {
           await tx.detallePedido.update({
-            where: { id: detalleExistente.id },
+            where: { id: existente.id },
             data: { cantidad: { increment: p.cantidad } }
           });
         } else {
-          // 3. SI NO EXISTE: Creamos la fila nueva
           await tx.detallePedido.create({
             data: {
               pedidoId: parseInt(id),
-              productoId: p.id,
-              cantidad: p.cantidad
+              productoId: p.id, // Guardamos el ID de la cerveza para el stock
+              cantidad: p.cantidad,
+              nota: p.esMichelada ? "MICHELADA" : ""
             }
           });
         }
-      }
 
+        await tx.pedido.update({
+          where: { id: parseInt(id) },
+          data: { total: { increment: precioFinal * p.cantidad } }
+        });
+      }
+    });
+    res.json({ msg: "Pedido actualizado" });
+  } catch (error) { res.status(500).json(error); }
+});
       // 4. Actualizar el total global del pedido
       return await tx.pedido.update({
         where: { id: parseInt(id) },
