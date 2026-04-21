@@ -12,6 +12,7 @@ const App = () => {
   const [verDetalleTicket, setVerDetalleTicket] = useState(false);
   const [datosReporte, setDatosReporte] = useState(null);
   const [mostrarSelectorCerveza, setMostrarSelectorCerveza] = useState(false);
+  const [micheladaTemporal, setMicheladaTemporal] = useState(null);
 
   useEffect(() => {
     fetchProductos();
@@ -36,28 +37,38 @@ const App = () => {
     } catch (err) { console.error(err); }
   };
 
-  const agregarProducto = async (prod, esMichelada = false) => {
-    if (prod.nombre.toLowerCase().includes("michelada") && !esMichelada) {
+  const agregarProducto = async (prod, esBase = false) => {
+    // Si toca el botón Michelada
+    if (prod.nombre.toLowerCase() === "michelada" && !esBase) {
+      setMicheladaTemporal(prod);
       setMostrarSelectorCerveza(true);
       return;
     }
+
     try {
-      await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/agregar`, {
-        productos: [{ id: prod.id, cantidad: 1, esMichelada }]
-      });
+      const payload = esBase 
+        ? { 
+            productoId: micheladaTemporal.id, 
+            productoBaseId: prod.id, 
+            nombreMostrar: `Michelada con ${prod.nombre}`,
+            cantidad: 1 
+          }
+        : { 
+            productoId: prod.id, 
+            cantidad: 1 
+          };
+
+      await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/agregar`, payload);
       setMostrarSelectorCerveza(false);
       fetchPedidosActivos();
     } catch (err) { alert("Error al agregar"); }
   };
 
-  const eliminarProducto = async (prodId, nota) => {
+  const eliminarDetalle = async (detalleId) => {
     try {
-      await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/eliminar`, {
-        productoId: prodId,
-        esMichelada: nota === "MICHELADA"
-      });
+      await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/eliminar`, { detalleId });
       fetchPedidosActivos();
-    } catch (err) { alert("Error al quitar"); }
+    } catch (err) { alert("Error al eliminar"); }
   };
 
   const cerrarCuenta = async () => {
@@ -75,9 +86,9 @@ const App = () => {
       <div style={styles.modalContent}>
         <h3 style={{color: '#333'}}>Selecciona la cerveza base</h3>
         <div style={{maxHeight: '300px', overflowY: 'auto'}}>
-          {productos.filter(p => p.esCerveza === true).map(c => (
+          {productos.filter(p => p.esCerveza).map(c => (
             <button key={c.id} onClick={() => agregarProducto(c, true)} style={styles.modalBtn}>
-              {c.nombre} (${c.precio.toFixed(2)})
+              {c.nombre}
             </button>
           ))}
         </div>
@@ -111,7 +122,7 @@ const App = () => {
               <div style={styles.historyDetails}>
                 {p.detallesPedido.map((det, i) => (
                   <div key={i} style={styles.historyItem}>
-                    <span>{det.cantidad}x {det.nota === "MICHELADA" ? "Michelada " : ""}{det.producto.nombre}</span>
+                    <span>{det.cantidad}x {det.nombrePersonalizado || det.producto.nombre}</span>
                     <span>${(det.producto.precio * det.cantidad).toFixed(2)}</span>
                   </div>
                 ))}
@@ -159,10 +170,14 @@ const App = () => {
       {mostrarSelectorCerveza && <SelectorCerveza />}
       <button onClick={() => setVista("LISTADO")} style={styles.backBtn}>← Volver</button>
       <h2 style={{color: '#f1c40f', textAlign:'center'}}>{pedidoSeleccionado?.mesero}</h2>
+      
       {!categoriaActual ? (
         <div style={styles.grid}>
           {["Bebidas", "Cocteles", "Comida"].map(cat => (
-            <button key={cat} onClick={() => setCategoriaActual(cat)} style={{...styles.catBtn, background: cat === 'Comida' ? '#e67e22' : cat === 'Cocteles' ? '#9b59b6' : '#3498db'}}>{cat}</button>
+            <button key={cat} onClick={() => setCategoriaActual(cat)} 
+              style={{...styles.catBtn, background: cat === 'Comida' ? '#e67e22' : cat === 'Cocteles' ? '#9b59b6' : '#3498db'}}>
+              {cat}
+            </button>
           ))}
         </div>
       ) : (
@@ -177,7 +192,11 @@ const App = () => {
           </div>
         </div>
       )}
-      <button style={styles.cartFloat} onClick={() => setVerDetalleTicket(true)}>🛒 Cuenta: ${pedidoSeleccionado?.total.toFixed(2)}</button>
+
+      <button style={styles.cartFloat} onClick={() => setVerDetalleTicket(true)}>
+        🛒 Cuenta: ${pedidoSeleccionado?.total.toFixed(2)}
+      </button>
+
       {verDetalleTicket && (
         <div style={styles.modalOverlay}>
           <div style={{...styles.modalContent, color: '#333', maxHeight: '85vh', overflowY: 'auto'}}>
@@ -185,16 +204,20 @@ const App = () => {
                <h3>Detalle Mesa</h3>
                <button onClick={() => setVerDetalleTicket(false)} style={{border:'none', background:'none', fontSize: '1.5rem'}}>×</button>
             </div>
-            {pedidoSeleccionado.detallesPedido.map((d, i) => (
-              <div key={i} style={styles.ticketItem}>
-                <div style={{display:'flex', alignItems: 'center', gap: '10px'}}>
-                  <button onClick={() => eliminarProducto(d.productoId, d.nota)} style={styles.btnMinus}>-</button>
-                  <span>{d.cantidad}x {d.nota === "MICHELADA" ? "Michelada " : ""}{d.producto.nombre}</span>
+            <div style={{textAlign: 'left', margin: '15px 0'}}>
+              {pedidoSeleccionado.detallesPedido.map((d, i) => (
+                <div key={i} style={styles.ticketItem}>
+                  <div style={{display:'flex', alignItems: 'center', gap: '10px'}}>
+                    <button onClick={() => eliminarDetalle(d.id)} style={styles.btnMinus}>-</button>
+                    <span>{d.cantidad}x {d.nombrePersonalizado || d.producto.nombre}</span>
+                  </div>
+                  <span>${(d.producto.precio * d.cantidad).toFixed(2)}</span>
                 </div>
-                <span>${(d.producto.precio * d.cantidad).toFixed(2)}</span>
-              </div>
-            ))}
-            <div style={{fontWeight: 'bold', fontSize: '1.8rem', borderTop: '2px solid #eee', paddingTop: '15px'}}>TOTAL: ${pedidoSeleccionado.total.toFixed(2)}</div>
+              ))}
+            </div>
+            <div style={{fontWeight: 'bold', fontSize: '1.8rem', borderTop: '2px solid #eee', paddingTop: '15px'}}>
+              TOTAL: ${pedidoSeleccionado.total.toFixed(2)}
+            </div>
             <button onClick={cerrarCuenta} style={styles.payBtn}>CERRAR Y COBRAR</button>
           </div>
         </div>
