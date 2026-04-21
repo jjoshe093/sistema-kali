@@ -74,7 +74,7 @@ app.put('/api/pedidos/:id/eliminar', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// AJUSTE SOLICITADO: No permite cerrar si no hay productos
+// AJUSTE: No permite cerrar si la mesa está vacía
 app.put('/api/pedidos/:id/cerrar', async (req, res) => {
   const { id } = req.params;
   try {
@@ -84,7 +84,7 @@ app.put('/api/pedidos/:id/cerrar', async (req, res) => {
         include: { detallesPedido: { include: { producto: true } } }
       });
       if (!pedido.detallesPedido || pedido.detallesPedido.length === 0) {
-        throw new Error("No se puede cerrar una mesa vacía");
+        throw new Error("No se puede cerrar una mesa vacía.");
       }
       for (const item of pedido.detallesPedido) {
         if (item.productoBaseId) {
@@ -114,4 +114,4 @@ app.get('/api/reportes/diario', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Servidor Activo"));
+app.listen(process.env.PORT || 3000, () => console.log("Servidor Kali Gastrobar Activo"));
