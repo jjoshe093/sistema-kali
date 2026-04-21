@@ -38,7 +38,6 @@ const App = () => {
   };
 
   const agregarProducto = async (prod, esBase = false) => {
-    // AJUSTE: Confirmación de añadir
     if (!window.confirm(`¿Seguro que deseas agregar ${prod.nombre}?`)) return;
 
     if (prod.nombre.toLowerCase() === "michelada" && !esBase) {
@@ -54,7 +53,6 @@ const App = () => {
   };
 
   const eliminarDetalle = async (detalleId, nombre) => {
-    // AJUSTE: Confirmación de eliminar
     if (!window.confirm(`¿Seguro que deseas eliminar una unidad de ${nombre}?`)) return;
     try {
       await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/eliminar`, { detalleId });
@@ -63,7 +61,6 @@ const App = () => {
   };
 
   const cerrarCuenta = async () => {
-    // AJUSTE: No deja cerrar si está vacío
     if (pedidoSeleccionado.detallesPedido.length === 0) {
       alert("No puedes cerrar una mesa vacía. Agrega productos o elimina la mesa.");
       return;
@@ -76,7 +73,6 @@ const App = () => {
   };
 
   if (vista === "REPORTE") {
-    // AJUSTE: Selector de últimos 7 días
     const ultimos7Dias = [...Array(7)].map((_, i) => {
       const d = new Date(); d.setDate(d.getDate() - i);
       return d.toLocaleDateString('sv-SE');
@@ -84,7 +80,7 @@ const App = () => {
 
     return (
       <div style={styles.container}>
-        <button onClick={() => setVista("LISTADO")} style={styles.backBtn}>← Volver</button>
+        <button onClick={() => { setVista("LISTADO"); fetchPedidosActivos(); }} style={styles.backBtn}>← Volver</button>
         <h1 style={styles.header}>KALI GASTROBAR</h1>
         
         <div style={{marginBottom: '20px'}}>
@@ -118,7 +114,11 @@ const App = () => {
         <h1 style={styles.header}>KALI GASTROBAR 🍷</h1>
         <button onClick={async () => {
           const n = prompt("Nombre de la Mesa o Cliente:");
-          if(n) { const res = await axios.post(`${API_URL}/pedidos/nuevo`, { mesero: n }); setPedidoSeleccionado(res.data); setVista("TOMA_PEDIDO"); }
+          if(n) { 
+            const res = await axios.post(`${API_URL}/pedidos/nuevo`, { mesero: n }); 
+            setPedidoSeleccionado(res.data); 
+            setVista("TOMA_PEDIDO"); 
+          }
         }} style={styles.btnNuevo}>+ ABRIR NUEVA MESA</button>
         <button onClick={() => { setVista("REPORTE"); cargarReporte(fechaReporte); }} style={styles.btnReporte}>📊 VER REPORTE DE VENTAS</button>
         <h2 style={{color: '#f1c40f', marginTop: '30px'}}>Mesas Activas</h2>
@@ -142,7 +142,7 @@ const App = () => {
           </div>
           <button onClick={() => setMostrarSelectorCerveza(false)} style={{...styles.modalBtn, background: '#e74c3c', color: 'white', marginTop: '10px', textAlign: 'center'}}>Cancelar</button>
       </div></div>}
-      <button onClick={() => setVista("LISTADO")} style={styles.backBtn}>← Volver</button>
+      <button onClick={() => { setVista("LISTADO"); fetchPedidosActivos(); }} style={styles.backBtn}>← Volver</button>
       <h2 style={{color: '#f1c40f', textAlign:'center'}}>{pedidoSeleccionado?.mesero}</h2>
       {!categoriaActual ? (
         <div style={styles.grid}>
