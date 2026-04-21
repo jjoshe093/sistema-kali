@@ -34,10 +34,12 @@ model Pedido {
 }
 
 model DetallePedido {
-  id          Int      @id @default(autoincrement())
-  pedidoId    Int
-  productoId  Int
-  cantidad    Int
-  pedido      Pedido   @relation(fields: [pedidoId], references: [id])
-  producto    Producto @relation(fields: [productoId], references: [id])
+  id               Int      @id @default(autoincrement())
+  pedidoId         Int
+  productoId       Int      // Aquí irá el ID de la "Michelada" ($4.50)
+  productoBaseId   Int?     // Aquí guardaremos el ID de la cerveza para el stock
+  nombrePersonalizado String? // Para guardar "Michelada con Regia Alta"
+  cantidad         Int
+  pedido           Pedido   @relation(fields: [pedidoId], references: [id])
+  producto         Producto @relation(fields: [productoId], references: [id])
 }

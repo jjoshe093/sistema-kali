@@ -33,47 +33,29 @@ app.post('/api/pedidos/nuevo', async (req, res) => {
   res.json(nuevo);
 });
 
-// --- AGREGAR PRODUCTO ---
+// --- AGREGAR PRODUCTO (Lógica Michelada) ---
 app.put('/api/pedidos/:id/agregar', async (req, res) => {
   const { id } = req.params;
-  const { productos } = req.body; 
+  const { productoId, cantidad, productoBaseId, nombreMostrar } = req.body; 
 
   try {
-    await prisma.$transaction(async (tx) => {
-      for (const p of productos) {
-        const prodDb = await tx.producto.findUnique({ where: { id: p.id } });
-        const precioAplicado = prodDb.precio;
+    const prodPrincipal = await prisma.producto.findUnique({ where: { id: parseInt(productoId) } });
 
-        const detalleExistente = await tx.detallePedido.findFirst({
-          where: {
-            pedidoId: parseInt(id),
-            productoId: p.id,
-            nota: p.esMichelada ? "MICHELADA" : ""
-          }
-        });
-
-        if (detalleExistente) {
-          await tx.detallePedido.update({
-            where: { id: detalleExistente.id },
-            data: { cantidad: { increment: p.cantidad } }
-          });
-        } else {
-          await tx.detallePedido.create({
-            data: {
-              pedidoId: parseInt(id),
-              productoId: p.id,
-              cantidad: p.cantidad,
-              nota: p.esMichelada ? "MICHELADA" : ""
-            }
-          });
-        }
-
-        await tx.pedido.update({
-          where: { id: parseInt(id) },
-          data: { total: { increment: precioAplicado * p.cantidad } }
-        });
+    await prisma.detallePedido.create({
+      data: {
+        pedidoId: parseInt(id),
+        productoId: parseInt(productoId),
+        productoBaseId: productoBaseId ? parseInt(productoBaseId) : null,
+        nombrePersonalizado: nombreMostrar || prodPrincipal.nombre,
+        cantidad: cantidad
       }
     });
+
+    await prisma.pedido.update({
+      where: { id: parseInt(id) },
+      data: { total: { increment: prodPrincipal.precio * cantidad } }
+    });
+
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -83,41 +65,34 @@ app.put('/api/pedidos/:id/agregar', async (req, res) => {
 // --- ELIMINAR PRODUCTO ---
 app.put('/api/pedidos/:id/eliminar', async (req, res) => {
   const { id } = req.params;
-  const { productoId, esMichelada } = req.body;
+  const { detalleId } = req.body; // Usamos el ID del detalle directamente
 
   try {
-    await prisma.$transaction(async (tx) => {
-      const detalle = await tx.detallePedido.findFirst({
-        where: { 
-          pedidoId: parseInt(id), 
-          productoId: parseInt(productoId),
-          nota: esMichelada ? "MICHELADA" : ""
-        },
-        include: { producto: true }
-      });
-
-      if (!detalle) return;
-      const precioARestar = detalle.producto.precio;
-
-      await tx.pedido.update({
-        where: { id: parseInt(id) },
-        data: { total: { decrement: precioARestar } }
-      });
-
-      if (detalle.cantidad > 1) {
-        await tx.detallePedido.update({
-          where: { id: detalle.id },
-          data: { cantidad: { decrement: 1 } }
-        });
-      } else {
-        await tx.detallePedido.delete({ where: { id: detalle.id } });
-      }
+    const detalle = await prisma.detallePedido.findUnique({
+      where: { id: parseInt(detalleId) },
+      include: { producto: true }
     });
+
+    if (!detalle) return res.status(404).send("No encontrado");
+
+    await prisma.pedido.update({
+      where: { id: parseInt(id) },
+      data: { total: { decrement: detalle.producto.precio } }
+    });
+
+    if (detalle.cantidad > 1) {
+      await prisma.detallePedido.update({
+        where: { id: detalle.id },
+        data: { cantidad: { decrement: 1 } }
+      });
+    } else {
+      await prisma.detallePedido.delete({ where: { id: detalle.id } });
+    }
     res.json({ success: true });
   } catch (error) { res.status(500).json(error); }
 });
 
-// --- CERRAR CUENTA (Descuenta stock solo Bebidas) ---
+// --- CERRAR CUENTA (Descuento de Stock Especial) ---
 app.put('/api/pedidos/:id/cerrar', async (req, res) => {
   const { id } = req.params;
   try {
@@ -128,7 +103,15 @@ app.put('/api/pedidos/:id/cerrar', async (req, res) => {
       });
 
       for (const item of pedido.detallesPedido) {
-        if (item.producto.categoria === "Bebidas") {
+        // Si es Michelada, descontamos la base (Regia, Corona, etc)
+        if (item.productoBaseId) {
+          await tx.producto.update({
+            where: { id: item.productoBaseId },
+            data: { stock: { decrement: item.cantidad } }
+          });
+        } 
+        // Si es bebida normal, descontamos el producto directo
+        else if (item.producto.categoria === "Bebidas") {
           await tx.producto.update({
             where: { id: item.productoId },
             data: { stock: { decrement: item.cantidad } }
@@ -145,7 +128,6 @@ app.put('/api/pedidos/:id/cerrar', async (req, res) => {
   } catch (error) { res.status(500).json(error); }
 });
 
-// --- REPORTE DIARIO ---
 app.get('/api/reportes/diario', async (req, res) => {
   const { fecha } = req.query;
   const inicio = new Date(fecha); inicio.setHours(0,0,0,0);
@@ -160,4 +142,4 @@ app.get('/api/reportes/diario', async (req, res) => {
   res.json({ totalVendido, totalPedidos: pedidos.length, pedidos });
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Servidor Kali Gastrobar"));
+app.listen(process.env.PORT || 3000, () => console.log("Kali Server Ready"));
