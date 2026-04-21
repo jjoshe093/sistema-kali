@@ -74,7 +74,6 @@ app.put('/api/pedidos/:id/eliminar', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// AJUSTE: No permite cerrar si la mesa está vacía
 app.put('/api/pedidos/:id/cerrar', async (req, res) => {
   const { id } = req.params;
   try {
