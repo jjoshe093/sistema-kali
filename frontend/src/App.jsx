@@ -23,7 +23,7 @@ const App = () => {
     try {
       const res = await axios.get(`${API_URL}/productos`);
       setProductos(res.data);
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error("Error productos:", err); }
   };
 
   const fetchPedidosActivos = async () => {
@@ -34,13 +34,13 @@ const App = () => {
         const actualizado = res.data.find(p => p.id === pedidoSeleccionado.id);
         if (actualizado) setPedidoSeleccionado(actualizado);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error("Error pedidos:", err); }
   };
 
   const verReporte = async () => {
     try {
       const hoy = new Date();
-      const fechaLocal = hoy.toLocaleDateString('sv-SE'); // Formato YYYY-MM-DD
+      const fechaLocal = hoy.toLocaleDateString('sv-SE'); 
       const res = await axios.get(`${API_URL}/reportes/diario?fecha=${fechaLocal}`);
       setDatosReporte(res.data);
       setVista("REPORTE");
@@ -57,10 +57,14 @@ const App = () => {
       const payload = esBase 
         ? { productoId: micheladaTemporal.id, productoBaseId: prod.id, nombreMostrar: `Michelada con ${prod.nombre}`, cantidad: 1 }
         : { productoId: prod.id, cantidad: 1 };
+      
       await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/agregar`, payload);
       setMostrarSelectorCerveza(false);
       fetchPedidosActivos();
-    } catch (err) { alert("Error al agregar"); }
+    } catch (err) { 
+      console.error(err);
+      alert("Error al agregar: " + (err.response?.data?.error || "Revisa la conexión")); 
+    }
   };
 
   const eliminarDetalle = async (detalleId) => {
@@ -94,35 +98,23 @@ const App = () => {
     </div>
   );
 
-  // --- VISTAS ---
+  // --- RENDERIZADO (Diseño original Kali) ---
   if (vista === "REPORTE") {
     return (
       <div style={styles.container}>
         <button onClick={() => setVista("LISTADO")} style={styles.backBtn}>← Volver</button>
         <h1 style={styles.header}>KALI GASTROBAR</h1>
         <div style={styles.reportSummary}>
-          <div style={{...styles.reportCard, borderLeft: '5px solid #2ecc71'}}>
-            <span style={styles.cardLabel}>TOTAL VENDIDO</span>
-            <h2 style={styles.cardValue}>${datosReporte?.totalVendido?.toFixed(2) || "0.00"}</h2>
-          </div>
-          <div style={{...styles.reportCard, borderLeft: '5px solid #3498db'}}>
-            <span style={styles.cardLabel}>ORDENES</span>
-            <h2 style={styles.cardValue}>{datosReporte?.totalPedidos || 0}</h2>
-          </div>
+          <div style={{...styles.reportCard, borderLeft: '5px solid #2ecc71'}}><span style={styles.cardLabel}>TOTAL VENDIDO</span><h2 style={styles.cardValue}>${datosReporte?.totalVendido?.toFixed(2) || "0.00"}</h2></div>
+          <div style={{...styles.reportCard, borderLeft: '5px solid #3498db'}}><span style={styles.cardLabel}>ORDENES</span><h2 style={styles.cardValue}>{datosReporte?.totalPedidos || 0}</h2></div>
         </div>
         <div style={styles.historyList}>
           {datosReporte?.pedidos?.map(p => (
             <div key={p.id} style={styles.historyCard}>
-              <div style={styles.historyCardHeader}>
-                <strong>{p.mesero}</strong>
-                <span style={styles.historyTotal}>${p.total.toFixed(2)}</span>
-              </div>
+              <div style={styles.historyCardHeader}><strong>{p.mesero}</strong><span style={styles.historyTotal}>${p.total.toFixed(2)}</span></div>
               <div style={styles.historyDetails}>
                 {p.detallesPedido.map((det, i) => (
-                  <div key={i} style={styles.historyItem}>
-                    <span>{det.cantidad}x {det.nombrePersonalizado || det.producto.nombre}</span>
-                    <span>${(det.producto.precio * det.cantidad).toFixed(2)}</span>
-                  </div>
+                  <div key={i} style={styles.historyItem}><span>{det.cantidad}x {det.nombrePersonalizado || det.producto.nombre}</span><span>${(det.producto.precio * det.cantidad).toFixed(2)}</span></div>
                 ))}
               </div>
             </div>
@@ -137,7 +129,7 @@ const App = () => {
       <div style={styles.container}>
         <h1 style={styles.header}>KALI GASTROBAR 🍷</h1>
         <button onClick={async () => {
-          const n = prompt("Nombre de la Mesa o Cliente:");
+          const n = prompt("Nombre de la Mesa:");
           if(n) {
             const res = await axios.post(`${API_URL}/pedidos/nuevo`, { mesero: n });
             setPedidoSeleccionado(res.data);
@@ -145,12 +137,10 @@ const App = () => {
           }
         }} style={styles.btnNuevo}>+ ABRIR NUEVA MESA</button>
         <button onClick={verReporte} style={styles.btnReporte}>📊 VER REPORTE DE VENTAS</button>
-        <h2 style={{color: '#f1c40f', marginTop: '30px'}}>Mesas Activas</h2>
         <div style={styles.grid}>
           {pedidosActivos.map(p => (
             <div key={p.id} onClick={() => {setPedidoSeleccionado(p); setVista("TOMA_PEDIDO");}} style={styles.pedidoCard}>
-              <h3>{p.mesero}</h3>
-              <div style={styles.badgeTotal}>${p.total.toFixed(2)}</div>
+              <h3>{p.mesero}</h3><div style={styles.badgeTotal}>${p.total.toFixed(2)}</div>
             </div>
           ))}
         </div>
@@ -163,14 +153,10 @@ const App = () => {
       {mostrarSelectorCerveza && <SelectorCerveza />}
       <button onClick={() => setVista("LISTADO")} style={styles.backBtn}>← Volver</button>
       <h2 style={{color: '#f1c40f', textAlign:'center'}}>{pedidoSeleccionado?.mesero}</h2>
-      
       {!categoriaActual ? (
         <div style={styles.grid}>
           {["Bebidas", "Cocteles", "Comida"].map(cat => (
-            <button key={cat} onClick={() => setCategoriaActual(cat)} 
-              style={{...styles.catBtn, background: cat === 'Comida' ? '#e67e22' : cat === 'Cocteles' ? '#9b59b6' : '#3498db'}}>
-              {cat}
-            </button>
+            <button key={cat} onClick={() => setCategoriaActual(cat)} style={{...styles.catBtn, background: cat === 'Comida' ? '#e67e22' : cat === 'Cocteles' ? '#9b59b6' : '#3498db'}}>{cat}</button>
           ))}
         </div>
       ) : (
@@ -178,39 +164,23 @@ const App = () => {
           <button onClick={() => setCategoriaActual(null)} style={styles.secondaryBtn}>← Categorías</button>
           <div style={styles.grid}>
             {productos.filter(p => p.categoria === categoriaActual).map(p => (
-              <button key={p.id} onClick={() => agregarProducto(p)} style={styles.prodBtn}>
-                <strong>{p.nombre}</strong><br/>${p.precio.toFixed(2)}
-              </button>
+              <button key={p.id} onClick={() => agregarProducto(p)} style={styles.prodBtn}><strong>{p.nombre}</strong><br/>${p.precio.toFixed(2)}</button>
             ))}
           </div>
         </div>
       )}
-
-      <button style={styles.cartFloat} onClick={() => setVerDetalleTicket(true)}>
-        🛒 Cuenta: ${pedidoSeleccionado?.total.toFixed(2)}
-      </button>
-
+      <button style={styles.cartFloat} onClick={() => setVerDetalleTicket(true)}>🛒 Cuenta: ${pedidoSeleccionado?.total.toFixed(2)}</button>
       {verDetalleTicket && (
         <div style={styles.modalOverlay}>
           <div style={{...styles.modalContent, color: '#333', maxHeight: '85vh', overflowY: 'auto'}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-               <h3>Detalle Mesa</h3>
-               <button onClick={() => setVerDetalleTicket(false)} style={{border:'none', background:'none', fontSize: '1.5rem'}}>×</button>
-            </div>
-            <div style={{textAlign: 'left', margin: '15px 0'}}>
-              {pedidoSeleccionado.detallesPedido.map((d, i) => (
-                <div key={i} style={styles.ticketItem}>
-                  <div style={{display:'flex', alignItems: 'center', gap: '10px'}}>
-                    <button onClick={() => eliminarDetalle(d.id)} style={styles.btnMinus}>-</button>
-                    <span>{d.cantidad}x {d.nombrePersonalizado || d.producto.nombre}</span>
-                  </div>
-                  <span>${(d.producto.precio * d.cantidad).toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{fontWeight: 'bold', fontSize: '1.8rem', borderTop: '2px solid #eee', paddingTop: '15px'}}>
-              TOTAL: ${pedidoSeleccionado.total.toFixed(2)}
-            </div>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><h3>Detalle</h3><button onClick={() => setVerDetalleTicket(false)} style={{border:'none', background:'none', fontSize: '1.5rem'}}>×</button></div>
+            {pedidoSeleccionado.detallesPedido.map((d, i) => (
+              <div key={i} style={styles.ticketItem}>
+                <div style={{display:'flex', alignItems: 'center', gap: '10px'}}><button onClick={() => eliminarDetalle(d.id)} style={styles.btnMinus}>-</button><span>{d.cantidad}x {d.nombrePersonalizado || d.producto.nombre}</span></div>
+                <span>${(d.producto.precio * d.cantidad).toFixed(2)}</span>
+              </div>
+            ))}
+            <div style={{fontWeight: 'bold', fontSize: '1.8rem', borderTop: '2px solid #eee', paddingTop: '15px'}}>TOTAL: ${pedidoSeleccionado.total.toFixed(2)}</div>
             <button onClick={cerrarCuenta} style={styles.payBtn}>CERRAR Y COBRAR</button>
           </div>
         </div>
@@ -219,11 +189,12 @@ const App = () => {
   );
 };
 
+// --- ESTILOS (Mismos que ya usabas) ---
 const styles = {
   container: { background: '#121212', color: 'white', minHeight: '100vh', padding: '20px', fontFamily: 'sans-serif', paddingBottom: '100px' },
   header: { textAlign: 'center', color: '#f1c40f', fontSize: '2.2rem', marginBottom: '25px' },
   btnNuevo: { width: '100%', padding: '18px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '12px', cursor: 'pointer' },
-  btnReporte: { width: '100%', padding: '12px', background: '#333', color: 'white', border: '1px solid #555', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold' },
+  btnReporte: { width: '100%', padding: '12px', background: '#333', color: 'white', border: '1px solid #555', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '20px' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' },
   pedidoCard: { background: '#1e1e1e', padding: '20px', borderRadius: '15px', border: '1px solid #333', textAlign: 'center', cursor: 'pointer' },
   badgeTotal: { background: '#2ecc71', color: '#fff', borderRadius: '8px', padding: '6px', fontWeight: 'bold', fontSize: '1.1rem' },
@@ -244,7 +215,7 @@ const styles = {
   cardValue: { margin: '5px 0 0 0', color: '#fff' },
   historyList: { marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '15px' },
   historyCard: { background: '#1e1e1e', padding: '20px', borderRadius: '12px', border: '1px solid #333' },
-  historyCardHeader: { display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '10px', fontSize: '1.2rem' },
+  historyCardHeader: { display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '10px' },
   historyTotal: { color: '#2ecc71', fontWeight: 'bold' },
   historyDetails: { fontSize: '0.9rem', color: '#ccc' },
   historyItem: { display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }
