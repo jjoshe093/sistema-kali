@@ -37,27 +37,26 @@ const App = () => {
     } catch (err) { console.error(err); }
   };
 
+  const verReporte = async () => {
+    try {
+      const hoy = new Date();
+      const fechaLocal = hoy.toLocaleDateString('sv-SE'); // Formato YYYY-MM-DD
+      const res = await axios.get(`${API_URL}/reportes/diario?fecha=${fechaLocal}`);
+      setDatosReporte(res.data);
+      setVista("REPORTE");
+    } catch (err) { alert("Error al conectar con Railway"); }
+  };
+
   const agregarProducto = async (prod, esBase = false) => {
-    // Si toca "Michelada" (el producto de $4.50)
     if (prod.nombre.toLowerCase() === "michelada" && !esBase) {
       setMicheladaTemporal(prod);
       setMostrarSelectorCerveza(true);
       return;
     }
-
     try {
       const payload = esBase 
-        ? { 
-            productoId: micheladaTemporal.id, 
-            productoBaseId: prod.id, 
-            nombreMostrar: `Michelada con ${prod.nombre}`,
-            cantidad: 1 
-          }
-        : { 
-            productoId: prod.id, 
-            cantidad: 1 
-          };
-
+        ? { productoId: micheladaTemporal.id, productoBaseId: prod.id, nombreMostrar: `Michelada con ${prod.nombre}`, cantidad: 1 }
+        : { productoId: prod.id, cantidad: 1 };
       await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/agregar`, payload);
       setMostrarSelectorCerveza(false);
       fetchPedidosActivos();
@@ -68,7 +67,7 @@ const App = () => {
     try {
       await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/eliminar`, { detalleId });
       fetchPedidosActivos();
-    } catch (err) { alert("Error al restar"); }
+    } catch (err) { alert("Error al eliminar"); }
   };
 
   const cerrarCuenta = async () => {
@@ -78,7 +77,7 @@ const App = () => {
       setVerDetalleTicket(false);
       setVista("LISTADO");
       fetchPedidosActivos();
-    } catch (err) { alert("Error al cerrar cuenta"); }
+    } catch (err) { alert("Error al cerrar"); }
   };
 
   const SelectorCerveza = () => (
@@ -87,9 +86,7 @@ const App = () => {
         <h3 style={{color: '#333'}}>Selecciona la cerveza base</h3>
         <div style={{maxHeight: '300px', overflowY: 'auto'}}>
           {productos.filter(p => p.esCerveza).map(c => (
-            <button key={c.id} onClick={() => agregarProducto(c, true)} style={styles.modalBtn}>
-              {c.nombre}
-            </button>
+            <button key={c.id} onClick={() => agregarProducto(c, true)} style={styles.modalBtn}>{c.nombre}</button>
           ))}
         </div>
         <button onClick={() => setMostrarSelectorCerveza(false)} style={{...styles.modalBtn, background: '#e74c3c', color: 'white', marginTop: '10px', textAlign: 'center'}}>Cancelar</button>
@@ -97,13 +94,40 @@ const App = () => {
     </div>
   );
 
-  // Vistas y Renderizado idénticos a tu diseño original...
+  // --- VISTAS ---
   if (vista === "REPORTE") {
     return (
       <div style={styles.container}>
         <button onClick={() => setVista("LISTADO")} style={styles.backBtn}>← Volver</button>
         <h1 style={styles.header}>KALI GASTROBAR</h1>
-        {/* ... (Diseño de reporte que ya tenías) */}
+        <div style={styles.reportSummary}>
+          <div style={{...styles.reportCard, borderLeft: '5px solid #2ecc71'}}>
+            <span style={styles.cardLabel}>TOTAL VENDIDO</span>
+            <h2 style={styles.cardValue}>${datosReporte?.totalVendido?.toFixed(2) || "0.00"}</h2>
+          </div>
+          <div style={{...styles.reportCard, borderLeft: '5px solid #3498db'}}>
+            <span style={styles.cardLabel}>ORDENES</span>
+            <h2 style={styles.cardValue}>{datosReporte?.totalPedidos || 0}</h2>
+          </div>
+        </div>
+        <div style={styles.historyList}>
+          {datosReporte?.pedidos?.map(p => (
+            <div key={p.id} style={styles.historyCard}>
+              <div style={styles.historyCardHeader}>
+                <strong>{p.mesero}</strong>
+                <span style={styles.historyTotal}>${p.total.toFixed(2)}</span>
+              </div>
+              <div style={styles.historyDetails}>
+                {p.detallesPedido.map((det, i) => (
+                  <div key={i} style={styles.historyItem}>
+                    <span>{det.cantidad}x {det.nombrePersonalizado || det.producto.nombre}</span>
+                    <span>${(det.producto.precio * det.cantidad).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -120,12 +144,7 @@ const App = () => {
             setVista("TOMA_PEDIDO");
           }
         }} style={styles.btnNuevo}>+ ABRIR NUEVA MESA</button>
-        <button onClick={async () => {
-          const hoy = new Date().toISOString().split('T');
-          const res = await axios.get(`${API_URL}/reportes/diario?fecha=${hoy}`);
-          setDatosReporte(res.data);
-          setVista("REPORTE");
-        }} style={styles.btnReporte}>📊 VER REPORTE DE VENTAS</button>
+        <button onClick={verReporte} style={styles.btnReporte}>📊 VER REPORTE DE VENTAS</button>
         <h2 style={{color: '#f1c40f', marginTop: '30px'}}>Mesas Activas</h2>
         <div style={styles.grid}>
           {pedidosActivos.map(p => (
@@ -219,6 +238,16 @@ const styles = {
   ticketItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' },
   btnMinus: { background: '#e74c3c', color: 'white', border: 'none', borderRadius: '6px', width: '30px', height: '30px', fontWeight: 'bold' },
   payBtn: { width: '100%', padding: '20px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '1.4rem', marginTop: '20px' },
+  reportSummary: { display: 'flex', gap: '15px', marginTop: '20px' },
+  reportCard: { flex: 1, background: '#1e1e1e', padding: '20px', borderRadius: '12px' },
+  cardLabel: { fontSize: '0.8rem', color: '#aaa', fontWeight: 'bold' },
+  cardValue: { margin: '5px 0 0 0', color: '#fff' },
+  historyList: { marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '15px' },
+  historyCard: { background: '#1e1e1e', padding: '20px', borderRadius: '12px', border: '1px solid #333' },
+  historyCardHeader: { display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '10px', fontSize: '1.2rem' },
+  historyTotal: { color: '#2ecc71', fontWeight: 'bold' },
+  historyDetails: { fontSize: '0.9rem', color: '#ccc' },
+  historyItem: { display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }
 };
 
 export default App;
