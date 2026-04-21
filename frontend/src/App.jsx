@@ -37,9 +37,9 @@ const App = () => {
     } catch (err) {}
   };
 
-  // AJUSTE SOLICITADO: Pregunta antes de añadir
   const agregarProducto = async (prod, esBase = false) => {
-    if (!window.confirm(`¿Añadir ${prod.nombre} al pedido?`)) return;
+    // AJUSTE: Confirmación de añadir
+    if (!window.confirm(`¿Seguro que deseas agregar ${prod.nombre}?`)) return;
 
     if (prod.nombre.toLowerCase() === "michelada" && !esBase) {
       setMicheladaTemporal(prod); setMostrarSelectorCerveza(true); return;
@@ -53,21 +53,22 @@ const App = () => {
     } catch (err) { alert("Error al agregar"); }
   };
 
-  // AJUSTE SOLICITADO: Pregunta antes de eliminar
   const eliminarDetalle = async (detalleId, nombre) => {
-    if (!window.confirm(`¿Seguro que quieres eliminar 1 unidad de ${nombre}?`)) return;
+    // AJUSTE: Confirmación de eliminar
+    if (!window.confirm(`¿Seguro que deseas eliminar una unidad de ${nombre}?`)) return;
     try {
       await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/eliminar`, { detalleId });
       fetchPedidosActivos();
     } catch (err) {}
   };
 
-  // AJUSTE SOLICITADO: No deja cerrar si está vacío
   const cerrarCuenta = async () => {
+    // AJUSTE: No deja cerrar si está vacío
     if (pedidoSeleccionado.detallesPedido.length === 0) {
-      return alert("La mesa está vacía. No se puede cobrar.");
+      alert("No puedes cerrar una mesa vacía. Agrega productos o elimina la mesa.");
+      return;
     }
-    if (!window.confirm("¿Confirmar cobro y cierre de mesa?")) return;
+    if (!window.confirm(`¿Confirmar cierre de cuenta para ${pedidoSeleccionado.mesero}?`)) return;
     try {
       await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/cerrar`);
       setVerDetalleTicket(false); setVista("LISTADO"); fetchPedidosActivos();
@@ -75,8 +76,8 @@ const App = () => {
   };
 
   if (vista === "REPORTE") {
-    // AJUSTE SOLICITADO: Selector de últimos 7 días
-    const dias = [...Array(7)].map((_, i) => {
+    // AJUSTE: Selector de últimos 7 días
+    const ultimos7Dias = [...Array(7)].map((_, i) => {
       const d = new Date(); d.setDate(d.getDate() - i);
       return d.toLocaleDateString('sv-SE');
     });
@@ -84,20 +85,29 @@ const App = () => {
     return (
       <div style={styles.container}>
         <button onClick={() => setVista("LISTADO")} style={styles.backBtn}>← Volver</button>
-        <h1 style={styles.header}>REPORTES</h1>
-        <select value={fechaReporte} onChange={(e) => cargarReporte(e.target.value)} style={styles.selectInput}>
-          {dias.map(f => <option key={f} value={f}>{f}</option>)}
-        </select>
-        <div style={styles.reportSummary}>
-          <div style={styles.reportCard}><small>TOTAL</small><h2>${datosReporte?.totalVendido?.toFixed(2)}</h2></div>
-          <div style={styles.reportCard}><small>PEDIDOS</small><h2>{datosReporte?.totalPedidos}</h2></div>
+        <h1 style={styles.header}>KALI GASTROBAR</h1>
+        
+        <div style={{marginBottom: '20px'}}>
+          <label style={{color: '#f1c40f', display: 'block', marginBottom: '10px'}}>Seleccionar Fecha:</label>
+          <select value={fechaReporte} onChange={(e) => cargarReporte(e.target.value)} style={styles.selectInput}>
+            {ultimos7Dias.map(f => <option key={f} value={f}>{f}</option>)}
+          </select>
         </div>
-        {datosReporte?.pedidos?.map(p => (
-          <div key={p.id} style={styles.historyCard}>
-            <strong>{p.mesero} - ${p.total.toFixed(2)}</strong>
-            {p.detallesPedido.map((det, i) => <div key={i} style={{fontSize:'0.8rem', color:'#ccc'}}>{det.cantidad}x {det.nombrePersonalizado || det.producto.nombre}</div>)}
-          </div>
-        ))}
+
+        <div style={styles.reportSummary}>
+          <div style={{...styles.reportCard, borderLeft: '5px solid #2ecc71'}}><span style={styles.cardLabel}>TOTAL VENDIDO</span><h2 style={styles.cardValue}>${datosReporte?.totalVendido?.toFixed(2) || "0.00"}</h2></div>
+          <div style={{...styles.reportCard, borderLeft: '5px solid #3498db'}}><span style={styles.cardLabel}>ORDENES</span><h2 style={styles.cardValue}>{datosReporte?.totalPedidos || 0}</h2></div>
+        </div>
+        <div style={styles.historyList}>
+          {datosReporte?.pedidos?.map(p => (
+            <div key={p.id} style={styles.historyCard}>
+              <div style={styles.historyCardHeader}><strong>{p.mesero}</strong><span style={styles.historyTotal}>${p.total.toFixed(2)}</span></div>
+              <div style={styles.historyDetails}>
+                {p.detallesPedido.map((det, i) => <div key={i} style={styles.historyItem}><span>{det.cantidad}x {det.nombrePersonalizado || det.producto.nombre}</span><span>${(det.producto.precio * det.cantidad).toFixed(2)}</span></div>)}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -107,10 +117,11 @@ const App = () => {
       <div style={styles.container}>
         <h1 style={styles.header}>KALI GASTROBAR 🍷</h1>
         <button onClick={async () => {
-          const n = prompt("Nombre de la Mesa:");
+          const n = prompt("Nombre de la Mesa o Cliente:");
           if(n) { const res = await axios.post(`${API_URL}/pedidos/nuevo`, { mesero: n }); setPedidoSeleccionado(res.data); setVista("TOMA_PEDIDO"); }
-        }} style={styles.btnNuevo}>+ NUEVA MESA</button>
-        <button onClick={() => { setVista("REPORTE"); cargarReporte(fechaReporte); }} style={styles.btnReporte}>📊 VER REPORTES</button>
+        }} style={styles.btnNuevo}>+ ABRIR NUEVA MESA</button>
+        <button onClick={() => { setVista("REPORTE"); cargarReporte(fechaReporte); }} style={styles.btnReporte}>📊 VER REPORTE DE VENTAS</button>
+        <h2 style={{color: '#f1c40f', marginTop: '30px'}}>Mesas Activas</h2>
         <div style={styles.grid}>
           {pedidosActivos.map(p => (
             <div key={p.id} onClick={() => {setPedidoSeleccionado(p); setVista("TOMA_PEDIDO");}} style={styles.pedidoCard}>
@@ -125,11 +136,13 @@ const App = () => {
   return (
     <div style={styles.container}>
       {mostrarSelectorCerveza && <div style={styles.modalOverlay}><div style={styles.modalContent}>
-          <h3>Cerveza Base</h3>
-          {productos.filter(p => p.esCerveza).map(c => <button key={c.id} onClick={() => agregarProducto(c, true)} style={styles.modalBtn}>{c.nombre}</button>)}
-          <button onClick={() => setMostrarSelectorCerveza(false)} style={{...styles.modalBtn, background: '#e74c3c', color: 'white'}}>Cancelar</button>
+          <h3 style={{color: '#333'}}>Selecciona la cerveza base</h3>
+          <div style={{maxHeight: '300px', overflowY: 'auto'}}>
+            {productos.filter(p => p.esCerveza).map(c => <button key={c.id} onClick={() => agregarProducto(c, true)} style={styles.modalBtn}>{c.nombre}</button>)}
+          </div>
+          <button onClick={() => setMostrarSelectorCerveza(false)} style={{...styles.modalBtn, background: '#e74c3c', color: 'white', marginTop: '10px', textAlign: 'center'}}>Cancelar</button>
       </div></div>}
-      <button onClick={() => setVista("LISTADO")} style={styles.backBtn}>← Mesas</button>
+      <button onClick={() => setVista("LISTADO")} style={styles.backBtn}>← Volver</button>
       <h2 style={{color: '#f1c40f', textAlign:'center'}}>{pedidoSeleccionado?.mesero}</h2>
       {!categoriaActual ? (
         <div style={styles.grid}>
@@ -143,17 +156,17 @@ const App = () => {
           </div>
         </div>
       )}
-      <button style={styles.cartFloat} onClick={() => setVerDetalleTicket(true)}>🛒 TOTAL: ${pedidoSeleccionado?.total.toFixed(2)}</button>
+      <button style={styles.cartFloat} onClick={() => setVerDetalleTicket(true)}>🛒 Cuenta: ${pedidoSeleccionado?.total.toFixed(2)}</button>
       {verDetalleTicket && (
-        <div style={styles.modalOverlay}><div style={{...styles.modalContent, color: '#333', maxHeight: '80vh', overflowY: 'auto'}}>
-            <div style={{display:'flex', justifyContent:'space-between'}}><h3>Detalle</h3><button onClick={()=>setVerDetalleTicket(false)}>X</button></div>
+        <div style={styles.modalOverlay}><div style={{...styles.modalContent, color: '#333', maxHeight: '85vh', overflowY: 'auto'}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><h3>Detalle Mesa</h3><button onClick={() => setVerDetalleTicket(false)} style={{border:'none', background:'none', fontSize: '1.5rem'}}>×</button></div>
             {pedidoSeleccionado.detallesPedido.map((d, i) => (
               <div key={i} style={styles.ticketItem}>
-                <div><button onClick={() => eliminarDetalle(d.id, d.nombrePersonalizado || d.producto.nombre)} style={styles.btnMinus}>-</button><span> {d.cantidad}x {d.nombrePersonalizado || d.producto.nombre}</span></div>
+                <div style={{display:'flex', alignItems: 'center', gap: '10px'}}><button onClick={() => eliminarDetalle(d.id, d.nombrePersonalizado || d.producto.nombre)} style={styles.btnMinus}>-</button><span>{d.cantidad}x {d.nombrePersonalizado || d.producto.nombre}</span></div>
                 <span>${(d.producto.precio * d.cantidad).toFixed(2)}</span>
               </div>
             ))}
-            <h2 style={{borderTop:'2px solid #eee', paddingTop:'10px'}}>Total: ${pedidoSeleccionado.total.toFixed(2)}</h2>
+            <div style={{fontWeight: 'bold', fontSize: '1.8rem', borderTop: '2px solid #eee', paddingTop: '15px'}}>TOTAL: ${pedidoSeleccionado.total.toFixed(2)}</div>
             <button onClick={cerrarCuenta} style={styles.payBtn}>CERRAR Y COBRAR</button>
         </div></div>
       )}
@@ -162,28 +175,35 @@ const App = () => {
 };
 
 const styles = {
-  container: { background: '#121212', color: 'white', minHeight: '100vh', padding: '20px', fontFamily: 'sans-serif' },
-  header: { textAlign: 'center', color: '#f1c40f' },
-  btnNuevo: { width: '100%', padding: '18px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', marginBottom: '10px' },
-  btnReporte: { width: '100%', padding: '12px', background: '#333', color: 'white', border: '1px solid #555', borderRadius: '12px', marginBottom: '20px' },
+  container: { background: '#121212', color: 'white', minHeight: '100vh', padding: '20px', fontFamily: 'sans-serif', paddingBottom: '100px' },
+  header: { textAlign: 'center', color: '#f1c40f', fontSize: '2.2rem', marginBottom: '25px' },
+  btnNuevo: { width: '100%', padding: '18px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '12px' },
+  btnReporte: { width: '100%', padding: '12px', background: '#333', color: 'white', border: '1px solid #555', borderRadius: '12px', fontWeight: 'bold' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' },
   pedidoCard: { background: '#1e1e1e', padding: '20px', borderRadius: '15px', border: '1px solid #333', textAlign: 'center' },
-  badgeTotal: { background: '#2ecc71', borderRadius: '8px', padding: '5px', marginTop: '10px', fontWeight: 'bold' },
-  catBtn: { height: '100px', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.2rem', fontWeight: 'bold' },
+  badgeTotal: { background: '#2ecc71', color: '#fff', borderRadius: '8px', padding: '6px', fontWeight: 'bold', fontSize: '1.1rem' },
+  catBtn: { height: '110px', color: 'white', border: 'none', borderRadius: '15px', fontSize: '1.3rem', fontWeight: 'bold' },
   prodBtn: { background: '#2d2d2d', color: 'white', padding: '15px', border: '1px solid #444', borderRadius: '12px' },
-  backBtn: { background: '#333', color: 'white', border: 'none', padding: '10px', borderRadius: '8px', marginBottom: '10px' },
-  secondaryBtn: { background: 'none', color: '#f1c40f', border: '1px solid #f1c40f', padding: '8px', borderRadius: '8px', marginBottom: '10px' },
-  cartFloat: { position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', width: '90%', padding: '20px', background: '#f1c40f', borderRadius: '50px', fontWeight: 'bold', fontSize: '1.2rem' },
-  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { background: 'white', padding: '20px', borderRadius: '15px', width: '85%' },
-  modalBtn: { width: '100%', padding: '12px', marginBottom: '10px', borderRadius: '8px', border: '1px solid #ddd' },
-  ticketItem: { display: 'flex', justifyContent: 'space-between', margin: '10px 0' },
-  btnMinus: { background: '#e74c3c', color: 'white', border: 'none', borderRadius: '5px', width: '25px' },
-  payBtn: { width: '100%', padding: '15px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '1.2rem' },
-  selectInput: { width: '100%', padding: '12px', borderRadius: '8px', background: '#2d2d2d', color: 'white', border: '1px solid #444', marginBottom: '15px' },
-  reportSummary: { display: 'flex', gap: '10px', margin: '10px 0' },
-  reportCard: { flex: 1, background: '#1e1e1e', padding: '15px', borderRadius: '10px', textAlign: 'center' },
-  historyCard: { background: '#1e1e1e', padding: '15px', borderRadius: '10px', marginBottom: '10px', border: '1px solid #333' }
+  backBtn: { background: '#333', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', cursor: 'pointer', marginBottom: '10px' },
+  secondaryBtn: { background: 'none', color: '#f1c40f', border: '1px solid #f1c40f', padding: '10px', borderRadius: '8px', marginBottom: '15px' },
+  cartFloat: { position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', width: '92%', maxWidth: '400px', padding: '20px', background: '#f1c40f', color: '#000', border: 'none', borderRadius: '50px', fontSize: '1.2rem', fontWeight: 'bold', zIndex: 100, boxShadow: '0 8px 25px rgba(0,0,0,0.5)' },
+  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { background: 'white', padding: '25px', borderRadius: '20px', width: '90%', maxWidth: '400px', textAlign: 'center' },
+  modalBtn: { width: '100%', padding: '15px', marginBottom: '10px', borderRadius: '10px', border: '1px solid #eee', background: '#f9f9f9', fontWeight: 'bold', textAlign: 'left', color: '#333' },
+  ticketItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' },
+  btnMinus: { background: '#e74c3c', color: 'white', border: 'none', borderRadius: '6px', width: '30px', height: '30px', fontWeight: 'bold' },
+  payBtn: { width: '100%', padding: '20px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '1.4rem', marginTop: '20px' },
+  selectInput: { width: '100%', padding: '12px', borderRadius: '10px', background: '#222', color: 'white', border: '1px solid #444' },
+  reportSummary: { display: 'flex', gap: '15px', marginTop: '20px' },
+  reportCard: { flex: 1, background: '#1e1e1e', padding: '20px', borderRadius: '12px' },
+  cardLabel: { fontSize: '0.8rem', color: '#aaa', fontWeight: 'bold' },
+  cardValue: { margin: '5px 0 0 0', color: '#fff' },
+  historyList: { marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '15px' },
+  historyCard: { background: '#1e1e1e', padding: '20px', borderRadius: '12px', border: '1px solid #333' },
+  historyCardHeader: { display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '10px', fontSize: '1.2rem' },
+  historyTotal: { color: '#2ecc71', fontWeight: 'bold' },
+  historyDetails: { fontSize: '0.9rem', color: '#ccc' },
+  historyItem: { display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }
 };
 
 export default App;
