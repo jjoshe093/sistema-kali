@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const API_URL = "https://sistema-kali-production.up.railway.app/api";
+// URL del logo que subiste
+const LOGO_URL = "https://cloudup.com/iC_g8N8F_T6+"; // Reemplaza con la URL directa de tu imagen si es necesario
 
 const App = () => {
   const [productos, setProductos] = useState([]);
@@ -72,6 +74,17 @@ const App = () => {
     } catch (err) { alert(err.response?.data?.error); }
   };
 
+  // Componente del Logo para reutilizar
+  const LogoHeader = () => (
+    <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+      <img 
+        src="https://i.ibb.co/L6VvCXP/kali.jpg" 
+        alt="Logo Kali" 
+        style={{ width: '120px', height: 'auto', borderRadius: '15px', marginBottom: '10px' }} 
+      />
+    </div>
+  );
+
   if (vista === "REPORTE") {
     const ultimos7Dias = [...Array(7)].map((_, i) => {
       const d = new Date(); d.setDate(d.getDate() - i);
@@ -81,6 +94,7 @@ const App = () => {
     return (
       <div style={styles.container}>
         <button onClick={() => { setVista("LISTADO"); fetchPedidosActivos(); }} style={styles.backBtn}>← Volver</button>
+        <LogoHeader />
         <h1 style={styles.header}>KALI GASTROBAR</h1>
         
         <div style={{marginBottom: '20px'}}>
@@ -111,6 +125,7 @@ const App = () => {
   if (vista === "LISTADO") {
     return (
       <div style={styles.container}>
+        <LogoHeader />
         <h1 style={styles.header}>KALI GASTROBAR 🍷</h1>
         <button onClick={async () => {
           const n = prompt("Nombre de la Mesa o Cliente:");
@@ -158,8 +173,12 @@ const App = () => {
       )}
       <button style={styles.cartFloat} onClick={() => setVerDetalleTicket(true)}>🛒 Cuenta: ${pedidoSeleccionado?.total.toFixed(2)}</button>
       {verDetalleTicket && (
-        <div style={styles.modalOverlay}><div style={{...styles.modalContent, color: '#333', maxHeight: '85vh', overflowY: 'auto'}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><h3>Detalle Mesa</h3><button onClick={() => setVerDetalleTicket(false)} style={{border:'none', background:'none', fontSize: '1.5rem'}}>×</button></div>
+        <div style={styles.modalOverlay}><div style={{...styles.modalContent, color: '#333', maxHeight: '85vh', overflowY: 'auto', position: 'relative'}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+               <img src="https://i.ibb.co/L6VvCXP/kali.jpg" alt="mini logo" style={{width: '40px', borderRadius: '5px'}} />
+               <h3>Detalle Mesa</h3>
+               <button onClick={() => setVerDetalleTicket(false)} style={{border:'none', background:'none', fontSize: '1.5rem'}}>×</button>
+            </div>
             {pedidoSeleccionado.detallesPedido.map((d, i) => (
               <div key={i} style={styles.ticketItem}>
                 <div style={{display:'flex', alignItems: 'center', gap: '10px'}}><button onClick={() => eliminarDetalle(d.id, d.nombrePersonalizado || d.producto.nombre)} style={styles.btnMinus}>-</button><span>{d.cantidad}x {d.nombrePersonalizado || d.producto.nombre}</span></div>
@@ -176,7 +195,7 @@ const App = () => {
 
 const styles = {
   container: { background: '#121212', color: 'white', minHeight: '100vh', padding: '20px', fontFamily: 'sans-serif', paddingBottom: '100px' },
-  header: { textAlign: 'center', color: '#f1c40f', fontSize: '2.2rem', marginBottom: '25px' },
+  header: { textAlign: 'center', color: '#f1c40f', fontSize: '2.2rem', marginBottom: '25px', marginTop: '0px' },
   btnNuevo: { width: '100%', padding: '18px', background: '#27ae60', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '12px' },
   btnReporte: { width: '100%', padding: '12px', background: '#333', color: 'white', border: '1px solid #555', borderRadius: '12px', fontWeight: 'bold' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' },
