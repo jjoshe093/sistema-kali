@@ -46,7 +46,7 @@ const App = () => {
     }
     try {
       const payload = esBase 
-        ? { productoId: micheladaTemporal.id, productoBaseId: prod.id, nombreMostrar: `Michelada con ${prod.nombre}`, cantidad: 1 }
+        ? { productoId: micheladaTemporal.id, productoBaseId: prod.id, nombreMostrar: `${micheladaTemporal.nombre} con ${prod.nombre}`, cantidad: 1 }
         : { productoId: prod.id, cantidad: 1 };
       await axios.put(`${API_URL}/pedidos/${pedidoSeleccionado.id}/agregar`, payload);
       setMostrarSelectorCerveza(false); fetchPedidosActivos();
