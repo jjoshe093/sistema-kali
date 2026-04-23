@@ -40,7 +40,8 @@ const App = () => {
   const agregarProducto = async (prod, esBase = false) => {
     if (!window.confirm(`¿Seguro que deseas agregar ${prod.nombre}?`)) return;
 
-    if (prod.nombre.toLowerCase() === "michelada" && !esBase) {
+    if (prod.nombre.toLowerCase() === "michelada clásica" || prod.nombre.toLowerCase() === "michelada tamarindo"
+|| prod.nombre.toLowerCase() === "michelada piña" && !esBase) {
       setMicheladaTemporal(prod); setMostrarSelectorCerveza(true); return;
     }
     try {
