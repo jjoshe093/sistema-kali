@@ -101,7 +101,7 @@ app.put('/api/pedidos/:id/cerrar', async (req, res) => {
 app.get('/api/reportes/diario', async (req, res) => {
   const { fecha } = req.query;
   try {
-    const inicio = new Date(`${fecha}T06:00:00.000Z`); 
+    const inicio = new Date(`${fecha}T11:59:59.999Z`); 
     const fin = new Date(`${fecha}T23:59:59.999Z`);
     // Agregamos un día extra al final para cubrir el desfase de las 6 horas
     fin.setDate(fin.getDate() + 1);
