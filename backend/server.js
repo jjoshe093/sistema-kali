@@ -105,7 +105,7 @@ app.get('/api/reportes/diario', async (req, res) => {
     const fin = new Date(`${fecha}T23:59:59.999Z`);
     // Agregamos un día extra al final para cubrir el desfase de las 6 horas
     fin.setDate(fin.getDate() + 1);
-    fin.setHours(5, 59, 59, 999);
+    fin.setHours(11, 59, 59, 999);
     const pedidos = await prisma.pedido.findMany({
       where: { estado: "CERRADO", fecha: { gte: inicio, lte: fin } },
       include: { detallesPedido: { include: { producto: true } } },
